@@ -24,13 +24,19 @@ install() {
 
 list() {
   echo "List of MonkeyBoxes:"
+  echo
   COUNTER=0
   for env in  $(cat boxes/boxes.list); do
-    echo "ENV #$COUNTER: $env"
+    echo "Name: $env"
     for vm in $(cat boxes/$env.list); do
       ip=$(getent hosts $vm | awk '{ print $1 }')
-      echo "       $vm $ip"
+      url=""
+      if [[ $vm == *"mgmt"* ]]; then
+        url="http://$ip:8080/client"
+      fi
+      echo "  $vm $ip $url"
     done
+    echo
     options+=($env)
     let COUNTER++
   done
