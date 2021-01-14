@@ -1,0 +1,179 @@
+#!/bin/bash
+
+set -e
+
+echo MonkeyBox 🐵 1.0
+
+usage() {
+  echo "Available commands are:"
+  echo "   install: setup monkeynet and templates"
+  echo "   list: list available environments"
+  echo "   build: build packages from git repo and sha/tag/branch"
+  echo "   start: create monkeyboxes using templates, marvin cfg file"
+  echo "   deploy: configure global settings, setup boxes, storage and deploy zone"
+  echo "   test: start marvin tests"
+  echo "   stop: stop monkeyboxes"
+  echo "   clean: destroy environment"
+}
+
+install() {
+  virsh net-define --file monkeynet.xml
+  echo $pwd
+  for xml in $(ls templates/xmls/*xml); do virsh define $xml; done
+}
+
+list() {
+  echo "List of MonkeyBoxes:"
+  COUNTER=0
+  for env in  $(cat boxes/boxes.list); do
+    echo "ENV #$COUNTER: $env"
+    for vm in $(cat boxes/$env.list); do
+      ip=$(getent hosts $vm | awk '{ print $1 }')
+      echo "       $vm $ip"
+    done
+    options+=($env)
+    let COUNTER++
+  done
+  if [ ${#options[@]} -eq 0 ]; then
+    echo "No mbx environments found"
+  fi
+
+  echo
+  echo "Following mbx templates are available:"
+  virsh list --all | grep template | awk '{print $2}'
+}
+
+build() {
+  echo "Build Packages, please input git repo URL and git/sha/branch"
+}
+
+start() {
+  set -x
+
+  echo "Creating and starting monkeyboxes"
+  # FIXME: take input for name, mgmt server, hypervisor and their counts
+  # FIXME: find and use available ID
+  id=1
+  name="ry-415"
+  env="qa-$id-$name"
+  mkdir -p boxes/$env
+
+  # Save env name
+  echo $env >> boxes/boxes.list
+
+  # Clone in boxes directory
+  virt-clone --original template-kvm-centos7 --name $env-kvm1 --file boxes/$env/centos7-kvm1.qcow2
+  echo $env-kvm1 >> boxes/$env.list
+  virt-clone --original template-kvm-centos7 --name $env-kvm2 --file boxes/$env/centos7-kvm2.qcow2
+  echo $env-kvm2 >> boxes/$env.list
+  mgmt="$env-mgmt1"
+  virt-clone --original template-kvm-centos7 --name $mgmt --file boxes/$env/centos7-mgmt1.qcow2
+  echo $env-mgmt1 >> boxes/$env.list
+
+  echo "Starting VMs"
+  for domain in $(cat boxes/$env.list); do virsh start $domain; done;
+
+  # FIXME: copy from pristine storage folder
+  goldmaster="/export/testing/4.15"
+  storage_path="/export/testing/$env/"
+  sudo cp -vr $goldmaster $storage_path
+  echo "Primary and secondary storages are ready"
+
+  sleep 30
+
+  for box in $(cat boxes/$env.list); do
+    ip=$(getent hosts $box | awk '{ print $1 }')
+    while [ -z $ip ]; do
+      echo "Waiting for $box DHCP to kick-in"
+      sleep 10
+      ip=$(getent hosts $box | awk '{ print $1 }')
+    done
+    while ! nc -vzw 5 $ip 22 2>&1 > /dev/null; do echo "Waiting for ssh on $box ($ip) to come up"; sleep 10; done
+    echo "$box is UP, setting up hostname"
+    sshpass -p 'P@ssword123' ssh -o StrictHostKeyChecking=no root@$box hostnamectl set-hostname $box
+    sshpass -p 'P@ssword123' ssh -o StrictHostKeyChecking=no root@$box "echo $ip $box >> /etc/hosts"
+    sshpass -p 'P@ssword123' ssh -o StrictHostKeyChecking=no root@$box "cat /etc/hosts"
+  done
+
+  # setup + install mgmt server
+  mgmt_ip=$(getent hosts $mgmt | awk '{ print $1 }')
+  sshpass -p 'P@ssword123' ssh -o StrictHostKeyChecking=no root@$mgmt systemctl enable --now mariadb
+  sshpass -p 'P@ssword123' ssh -o StrictHostKeyChecking=no root@$mgmt yum install -y cloudstack-management cloudstack-usage cloudstack-common cloudstack-integration-tests cloudstack-marvin
+  sshpass -p 'P@ssword123' ssh -o StrictHostKeyChecking=no root@$mgmt "cloudstack-setup-databases cloud:cloud@localhost --deploy-as=root: -i $mgmt_ip"
+  sshpass -p 'P@ssword123' ssh -o StrictHostKeyChecking=no root@$mgmt "mysql -u root --execute=\"INSERT INTO cloud.configuration (category, instance, component, name, value) VALUES ('Advanced', 'DEFAULT', 'management-server', 'integration.api.port', '8096');\""
+  sshpass -p 'P@ssword123' ssh -o StrictHostKeyChecking=no root@$mgmt cloudstack-setup-management
+
+  # install cloudstack-agent on KVM hosts
+  sshpass -p 'P@ssword123' ssh -o StrictHostKeyChecking=no root@$env-kvm1 yum install -y cloudstack-agent
+  sshpass -p 'P@ssword123' ssh -o StrictHostKeyChecking=no root@$env-kvm2 yum install -y cloudstack-agent
+
+  echo "VMs created, ready to do a 'mbx deploy'"
+}
+
+deploy() {
+  echo "Deploying Environment:"
+  # FIXME: get env from user/input
+  env="qa-1-ry-415"
+  id=$(echo $env | sed 's/qa-//g' | sed 's/-.*//g')
+  for box in $(cat boxes/$env.list); do
+    ip=$(getent hosts $box | awk '{ print $1 }')
+    echo $ip $box
+  done
+
+  mgmt="$env-mgmt1"
+  mgmt_ip=$(getent hosts $mgmt | awk '{ print $1 }')
+
+  export vlan="$(echo $id*100|bc)-$(echo $id*100*2-1|bc)"
+  export public_start="172.20.$id.10"
+  export public_end="172.20.$id.200"
+  export pod_start="172.20.$(echo $id*10| bc).10"
+  export pod_end="172.20.$(echo $id*10| bc).200"
+  export kvm_host1=$(getent hosts $env-kvm1 | awk '{ print $1 }')
+  export kvm_host2=$(getent hosts $env-kvm2 | awk '{ print $1 }')
+  export storage_path="/export/testing/$env"
+  envsubst < marvin/kvm.cfg > boxes/$env/marvin.cfg
+  sshpass -p 'P@ssword123' scp -o StrictHostKeyChecking=no boxes/$env/marvin.cfg root@$mgmt_ip:/marvin/
+  sshpass -p 'P@ssword123' scp -o StrictHostKeyChecking=no files/smoketests.sh root@$mgmt_ip:/marvin/
+
+  while ! nc -vzw 5 $mgmt_ip 8096 2>&1 > /dev/null; do echo "Waiting for management server to come up"; sleep 10; done
+  echo "Management server is UP now, deploying data center now"
+  sshpass -p 'P@ssword123' ssh -o StrictHostKeyChecking=no root@$mgmt_ip python /usr/lib/python2.7/site-packages/marvin/deployDataCenter.py -i /marvin/marvin.cfg
+}
+
+test() {
+  set +x
+  echo "Please ssh into the env; cd /marvin; bash -x smoketests.sh:"
+  for env in  $(cat boxes/boxes.list); do
+    for vm in $(cat boxes/$env.list| grep mgmt1); do
+      echo "$env: ssh root@$vm"
+    done
+  done
+}
+
+clean() {
+  env=$1
+  if [ -z "$env" ]; then
+    echo "Please pass a valid name, run 'mbx list' for list of available envs"
+    return
+  fi
+  for vm in $(cat boxes/$env.list); do
+    virsh destroy $vm;
+    virsh undefine $vm;
+  done
+  sed -i "/$env/d" boxes/boxes.list
+  rm -frv boxes/$env boxes/$env.list
+  rm -frv /export/testing/$env
+  "Removed environment VMs, storage and config"
+}
+
+case "$1" in
+    help) usage;;
+    -h) usage;;
+    install) install;;
+    list) list;;
+    build) build;;
+    start) start;;
+    deploy) deploy;;
+    test) test;;
+    clean) clean $2;;
+esac
