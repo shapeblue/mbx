@@ -1,0 +1,6 @@
+Cmnd_Alias CLOUDSTACK = /bin/mkdir, /bin/mount, /bin/umount, /bin/cp, /bin/chmod, /usr/bin/keytool, /bin/keytool, /usr/bin/virsh
+
+Defaults:%sudo !requiretty
+
+%sudo   ALL=(root) NOPASSWD:CLOUDSTACK
+

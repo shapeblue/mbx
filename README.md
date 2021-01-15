@@ -22,6 +22,8 @@ We require that you install nfs and run it from /export:
     # See Setting up NFS and then execute following:
     cd /export
     git clone https://github.com/rhtyd/mbx.git monkeybox
+    cd monkeybox
+    sudo cp files/sudoer.mbx /etc/sudoers.d/mbx
 
 ## Install KVM on your Laptop
 
@@ -46,6 +48,8 @@ on your machine:
 ![VM Manager](doc/images/virt-manager.png)
 
 Note: you need to install/setup KVM only once.
+
+Install docker for packaging: https://docs.docker.com/engine/install/ubuntu/
 
 ## Setup Network and Templates
 

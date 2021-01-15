@@ -1,11 +1,12 @@
 <domain type='kvm'>
-  <name>template-ubuntu1804</name>
-  <uuid>620621c5-a098-4ffe-9748-c4b7f85c7cfd</uuid>
-  <memory unit='KiB'>4194304</memory>
-  <currentMemory unit='KiB'>4194304</currentMemory>
-  <vcpu placement='static'>4</vcpu>
+  <name>mbxt-kvm-centos7</name>
+  <uuid>942496ef-dfb1-4bcd-9751-93d3a02c35a7</uuid>
+  <memory unit='KiB'>8392704</memory>
+  <currentMemory unit='KiB'>8392704</currentMemory>
+  <vcpu placement='static'>8</vcpu>
   <os>
     <type arch='x86_64' machine='pc-i440fx-focal'>hvm</type>
+    <boot dev='hd'/>
   </os>
   <features>
     <acpi/>
@@ -29,18 +30,9 @@
     <emulator>/usr/bin/qemu-system-x86_64</emulator>
     <disk type='file' device='disk'>
       <driver name='qemu' type='qcow2'/>
-      <source file='/var/lib/libvirt/images/template-ubuntu1804.qcow2'/>
+      <source file='/export/monkeybox/templates/kvm-centos7.qcow2'/>
       <target dev='hda' bus='ide'/>
-      <boot order='2'/>
       <address type='drive' controller='0' bus='0' target='0' unit='0'/>
-    </disk>
-    <disk type='file' device='cdrom'>
-      <driver name='qemu' type='raw'/>
-      <source file='/export/isos/ubuntu/ubuntu-18.04.5-live-server-amd64.iso'/>
-      <target dev='hdb' bus='ide'/>
-      <readonly/>
-      <boot order='1'/>
-      <address type='drive' controller='0' bus='0' target='0' unit='1'/>
     </disk>
     <controller type='usb' index='0' model='ich9-ehci1'>
       <address type='pci' domain='0x0000' bus='0x00' slot='0x05' function='0x7'/>
@@ -57,15 +49,15 @@
       <master startport='4'/>
       <address type='pci' domain='0x0000' bus='0x00' slot='0x05' function='0x2'/>
     </controller>
+    <controller type='pci' index='0' model='pci-root'/>
     <controller type='ide' index='0'>
       <address type='pci' domain='0x0000' bus='0x00' slot='0x01' function='0x1'/>
     </controller>
     <controller type='virtio-serial' index='0'>
       <address type='pci' domain='0x0000' bus='0x00' slot='0x06' function='0x0'/>
     </controller>
-    <controller type='pci' index='0' model='pci-root'/>
     <interface type='network'>
-      <mac address='52:54:00:9a:41:28'/>
+      <mac address='52:54:00:6e:cd:d2'/>
       <source network='monkeynet'/>
       <model type='e1000'/>
       <address type='pci' domain='0x0000' bus='0x00' slot='0x03' function='0x0'/>

@@ -1,9 +1,9 @@
 <domain type='kvm'>
-  <name>template-vmware67u3-with-vc</name>
-  <uuid>4c72be3c-21c4-444f-8a6e-9df1434d77d3</uuid>
-  <memory unit='KiB'>18874368</memory>
-  <currentMemory unit='KiB'>18874368</currentMemory>
-  <vcpu placement='static'>10</vcpu>
+  <name>mbxt-xenserver71</name>
+  <uuid>cc6c404d-bfbd-44b4-ac4f-5dd5dcc9daaa</uuid>
+  <memory unit='KiB'>8392704</memory>
+  <currentMemory unit='KiB'>8392704</currentMemory>
+  <vcpu placement='static'>8</vcpu>
   <os>
     <type arch='x86_64' machine='pc-i440fx-focal'>hvm</type>
     <boot dev='hd'/>
@@ -30,7 +30,7 @@
     <emulator>/usr/bin/qemu-system-x86_64</emulator>
     <disk type='file' device='disk'>
       <driver name='qemu' type='qcow2'/>
-      <source file='/export/monkeybox/templates/vmware67u3-with-vc.qcow2'/>
+      <source file='/export/monkeybox/templates/xenserver71.qcow2'/>
       <target dev='hda' bus='ide'/>
       <address type='drive' controller='0' bus='0' target='0' unit='0'/>
     </disk>
@@ -57,7 +57,7 @@
       <address type='pci' domain='0x0000' bus='0x00' slot='0x06' function='0x0'/>
     </controller>
     <interface type='network'>
-      <mac address='52:54:00:32:2c:73'/>
+      <mac address='52:54:00:5d:5b:5f'/>
       <source network='monkeynet'/>
       <model type='e1000'/>
       <address type='pci' domain='0x0000' bus='0x00' slot='0x03' function='0x0'/>

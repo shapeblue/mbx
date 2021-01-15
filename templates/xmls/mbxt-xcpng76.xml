@@ -1,6 +1,6 @@
 <domain type='kvm'>
-  <name>template-vmware67u3</name>
-  <uuid>ecd9bf1c-d6fa-4794-a8d7-8e936694a0a2</uuid>
+  <name>mbxt-xcpng76</name>
+  <uuid>c948ce2c-5273-4f23-9456-da1647e74e72</uuid>
   <memory unit='KiB'>8392704</memory>
   <currentMemory unit='KiB'>8392704</currentMemory>
   <vcpu placement='static'>8</vcpu>
@@ -30,7 +30,7 @@
     <emulator>/usr/bin/qemu-system-x86_64</emulator>
     <disk type='file' device='disk'>
       <driver name='qemu' type='qcow2'/>
-      <source file='/export/monkeybox/templates/vmware67u3.qcow2'/>
+      <source file='/export/monkeybox/templates/xcpng76.qcow2'/>
       <target dev='hda' bus='ide'/>
       <address type='drive' controller='0' bus='0' target='0' unit='0'/>
     </disk>
@@ -57,7 +57,7 @@
       <address type='pci' domain='0x0000' bus='0x00' slot='0x06' function='0x0'/>
     </controller>
     <interface type='network'>
-      <mac address='52:54:00:d5:f6:02'/>
+      <mac address='52:54:00:09:fc:23'/>
       <source network='monkeynet'/>
       <model type='e1000'/>
       <address type='pci' domain='0x0000' bus='0x00' slot='0x03' function='0x0'/>

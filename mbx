@@ -7,19 +7,20 @@ ROOT=/export/monkeybox
 # Initialise
 mkdir -p $ROOT/boxes
 touch $ROOT/boxes/boxes.list
+export LIBVIRT_DEFAULT_URI="qemu:///system"
 
 echo MonkeyBox 🐵 1.0
 
 usage() {
   echo "Available commands are:"
-  echo "   install: setup monkeynet and templates"
+  echo "   install: setup monkeynet and mbx templates"
   echo "   list: list available environments"
   echo "   build: build packages from git repo and sha/tag/branch"
-  echo "   deploy: deploy monkeybox VMs using templates, setup storage"
+  echo "   deploy: deploy monkeybox VMs using mbx templates, setup storage"
   echo "   launch: creates marvin config file and launches a zone"
   echo "   test: start marvin tests"
   echo "   stop: stop monkeyboxes"
-  echo "   clean: destroy environment"
+  echo "   destroy: destroy environment"
 }
 
 install() {
@@ -29,21 +30,21 @@ install() {
   echo $pwd
   echo "Setting up mbx templates, we assumes the templates are already downloaded in templates directory"
   for xml in $(ls $ROOT/templates/xmls/*xml); do virsh define $xml; done
+  sudo cp $ROOT/files/sudoer.mbx /etc/sudoers.d/mbx
 }
 
 list() {
-  echo "List of MonkeyBoxes:"
   echo
   COUNTER=0
   for env in  $(cat $ROOT/boxes/boxes.list); do
-    echo "Name: $env"
+    echo -e "Name: \033[4m$env\033[0m"
     for vm in $(cat $ROOT/boxes/$env.list); do
       ip=$(getent hosts $vm | awk '{ print $1 }')
       url=""
       if [[ $vm == *"mgmt"* ]]; then
         url="http://$ip:8080/client"
       fi
-      echo "  $vm $ip $url"
+      echo -e "$vm\t$ip\t$url"
     done
     echo
     options+=($env)
@@ -52,10 +53,9 @@ list() {
   if [ ${#options[@]} -eq 0 ]; then
     echo "No mbx environments found"
   fi
-
   echo
   echo "Following mbx templates are available:"
-  virsh list --all | grep template | awk '{print $2}'
+  virsh list --all | grep mbxt- | awk '{print $2}'
 }
 
 build() {
@@ -64,8 +64,6 @@ build() {
 }
 
 deploy() {
-  set -x
-
   echo "Creating and starting monkeyboxes"
   echo FIXME: take input for name, mgmt server, hypervisor and their counts
   echo FIXME: find and use available ID
@@ -79,12 +77,13 @@ deploy() {
   echo $env >> $ROOT/boxes/boxes.list
 
   # Clone in boxes directory
-  virt-clone --original template-kvm-centos7 --name $env-kvm1 --file $ROOT/boxes/$env/centos7-kvm1.qcow2
+  echo "Cloning mbx templates"
+  virt-clone --original mbxt-kvm-centos7 --name $env-kvm1 --file $ROOT/boxes/$env/centos7-kvm1.qcow2
   echo $env-kvm1 >> $ROOT/boxes/$env.list
-  virt-clone --original template-kvm-centos7 --name $env-kvm2 --file $ROOT/boxes/$env/centos7-kvm2.qcow2
+  virt-clone --original mbxt-kvm-centos7 --name $env-kvm2 --file $ROOT/boxes/$env/centos7-kvm2.qcow2
   echo $env-kvm2 >> $ROOT/boxes/$env.list
   mgmt="$env-mgmt1"
-  virt-clone --original template-kvm-centos7 --name $mgmt --file $ROOT/boxes/$env/centos7-mgmt1.qcow2
+  virt-clone --original mbxt-kvm-centos7 --name $mgmt --file $ROOT/boxes/$env/centos7-mgmt1.qcow2
   echo $env-mgmt1 >> $ROOT/boxes/$env.list
 
   echo "Starting VMs"
@@ -126,7 +125,7 @@ deploy() {
   sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$env-kvm1 yum install -y cloudstack-agent
   sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$env-kvm2 yum install -y cloudstack-agent
 
-  echo "VMs created, deploy env using 'mbx deploy'"
+  echo "VMs deployed, to launch zone run 'mbx launch'"
 }
 
 launch() {
@@ -156,8 +155,9 @@ launch() {
 
   # Deploy data center with generated config
   while ! nc -vzw 5 $mgmt_ip 8096 2>&1 > /dev/null; do echo "Waiting for management server to come up"; sleep 10; done
-  echo "Management server is UP now, launch data center now"
+  echo "Management server is UP now, launching data center now"
   sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$mgmt_ip python /usr/lib/python2.7/site-packages/marvin/deployDataCenter.py -i /marvin/marvin.cfg
+  echo "Launched: http://$mgmt_ip:8080/client"
 }
 
 test() {
@@ -170,10 +170,10 @@ test() {
   done
 }
 
-clean() {
+destroy() {
   env=$1
   if [ -z "$env" ]; then
-    echo "Usage: mbx clean <env name>. Please pass a name, run 'mbx list' for list of available envs."
+    echo "Usage: mbx destroy <env name>. Please pass a name, run 'mbx list' for list of available envs."
     return
   fi
   for vm in $(cat $ROOT/boxes/$env.list); do
@@ -195,6 +195,6 @@ case "$1" in
     deploy) deploy;;
     launch) launch;;
     test) test;;
-    clean) clean $2;;
+    destroy) destroy $2;;
     *) usage;;
 esac
