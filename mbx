@@ -17,8 +17,11 @@ usage() {
 }
 
 install() {
-  virsh net-define --file monkeynet.xml
+  virsh net-define monkeynet.xml
+  virsh net-autostart monkeynet
+  virsh net-start monkeynet
   echo $pwd
+  echo "Setting up mbx templates, we assumes the templates are already downloaded in templates directory"
   for xml in $(ls templates/xmls/*xml); do virsh define $xml; done
 }
 
