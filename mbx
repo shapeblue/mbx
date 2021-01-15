@@ -2,6 +2,12 @@
 
 set -e
 
+ROOT=/export/monkeybox
+
+# Initialise
+mkdir -p $ROOT/boxes
+touch $ROOT/boxes/boxes.list
+
 echo MonkeyBox 🐵 1.0
 
 usage() {
@@ -17,21 +23,21 @@ usage() {
 }
 
 install() {
-  virsh net-define monkeynet.xml
+  virsh net-define $ROOT/monkeynet.xml
   virsh net-autostart monkeynet
   virsh net-start monkeynet
   echo $pwd
   echo "Setting up mbx templates, we assumes the templates are already downloaded in templates directory"
-  for xml in $(ls templates/xmls/*xml); do virsh define $xml; done
+  for xml in $(ls $ROOT/templates/xmls/*xml); do virsh define $xml; done
 }
 
 list() {
   echo "List of MonkeyBoxes:"
   echo
   COUNTER=0
-  for env in  $(cat boxes/boxes.list); do
+  for env in  $(cat $ROOT/boxes/boxes.list); do
     echo "Name: $env"
-    for vm in $(cat boxes/$env.list); do
+    for vm in $(cat $ROOT/boxes/$env.list); do
       ip=$(getent hosts $vm | awk '{ print $1 }')
       url=""
       if [[ $vm == *"mgmt"* ]]; then
@@ -54,33 +60,35 @@ list() {
 
 build() {
   echo "Build Packages, please input git repo URL and git/sha/branch"
+  echo "TODO"
 }
 
 start() {
   set -x
 
   echo "Creating and starting monkeyboxes"
-  # FIXME: take input for name, mgmt server, hypervisor and their counts
-  # FIXME: find and use available ID
+  echo FIXME: take input for name, mgmt server, hypervisor and their counts
+  echo FIXME: find and use available ID
+
   id=1
   name="ry-415"
   env="qa-$id-$name"
-  mkdir -p boxes/$env
+  mkdir -p $ROOT/boxes/$env
 
   # Save env name
-  echo $env >> boxes/boxes.list
+  echo $env >> $ROOT/boxes/boxes.list
 
   # Clone in boxes directory
-  virt-clone --original template-kvm-centos7 --name $env-kvm1 --file boxes/$env/centos7-kvm1.qcow2
-  echo $env-kvm1 >> boxes/$env.list
-  virt-clone --original template-kvm-centos7 --name $env-kvm2 --file boxes/$env/centos7-kvm2.qcow2
-  echo $env-kvm2 >> boxes/$env.list
+  virt-clone --original template-kvm-centos7 --name $env-kvm1 --file $ROOT/boxes/$env/centos7-kvm1.qcow2
+  echo $env-kvm1 >> $ROOT/boxes/$env.list
+  virt-clone --original template-kvm-centos7 --name $env-kvm2 --file $ROOT/boxes/$env/centos7-kvm2.qcow2
+  echo $env-kvm2 >> $ROOT/boxes/$env.list
   mgmt="$env-mgmt1"
-  virt-clone --original template-kvm-centos7 --name $mgmt --file boxes/$env/centos7-mgmt1.qcow2
-  echo $env-mgmt1 >> boxes/$env.list
+  virt-clone --original template-kvm-centos7 --name $mgmt --file $ROOT/boxes/$env/centos7-mgmt1.qcow2
+  echo $env-mgmt1 >> $ROOT/boxes/$env.list
 
   echo "Starting VMs"
-  for domain in $(cat boxes/$env.list); do virsh start $domain; done;
+  for domain in $(cat $ROOT/boxes/$env.list); do virsh start $domain; done;
 
   # FIXME: copy from pristine storage folder
   goldmaster="/export/testing/4.15"
@@ -89,16 +97,16 @@ start() {
   echo "Primary and secondary storages are ready"
 
   sleep 30
-
   for box in $(cat boxes/$env.list); do
     ip=$(getent hosts $box | awk '{ print $1 }')
     while [ -z $ip ]; do
-      echo "Waiting for $box DHCP to kick-in"
+      echo "Waiting for $box DHCP to kick-in..."
       sleep 10
       ip=$(getent hosts $box | awk '{ print $1 }')
     done
     while ! nc -vzw 5 $ip 22 2>&1 > /dev/null; do echo "Waiting for ssh on $box ($ip) to come up"; sleep 10; done
     echo "$box is UP, setting up hostname"
+    # FIXME: different templates/os/hyp need different setup steps
     sshpass -p 'P@ssword123' ssh -o StrictHostKeyChecking=no root@$box hostnamectl set-hostname $box
     sshpass -p 'P@ssword123' ssh -o StrictHostKeyChecking=no root@$box "echo $ip $box >> /etc/hosts"
     sshpass -p 'P@ssword123' ssh -o StrictHostKeyChecking=no root@$box "cat /etc/hosts"
@@ -116,7 +124,7 @@ start() {
   sshpass -p 'P@ssword123' ssh -o StrictHostKeyChecking=no root@$env-kvm1 yum install -y cloudstack-agent
   sshpass -p 'P@ssword123' ssh -o StrictHostKeyChecking=no root@$env-kvm2 yum install -y cloudstack-agent
 
-  echo "VMs created, ready to do a 'mbx deploy'"
+  echo "VMs created, deploy env using 'mbx deploy'"
 }
 
 deploy() {
@@ -124,14 +132,14 @@ deploy() {
   # FIXME: get env from user/input
   env="qa-1-ry-415"
   id=$(echo $env | sed 's/qa-//g' | sed 's/-.*//g')
-  for box in $(cat boxes/$env.list); do
+  for box in $(cat $ROOT/boxes/$env.list); do
     ip=$(getent hosts $box | awk '{ print $1 }')
     echo $ip $box
   done
 
+  # Generate Marvin Config
   mgmt="$env-mgmt1"
   mgmt_ip=$(getent hosts $mgmt | awk '{ print $1 }')
-
   export vlan="$(echo $id*100|bc)-$(echo $id*100*2-1|bc)"
   export public_start="172.20.$id.10"
   export public_end="172.20.$id.200"
@@ -140,10 +148,11 @@ deploy() {
   export kvm_host1=$(getent hosts $env-kvm1 | awk '{ print $1 }')
   export kvm_host2=$(getent hosts $env-kvm2 | awk '{ print $1 }')
   export storage_path="/export/testing/$env"
-  envsubst < marvin/kvm.cfg > boxes/$env/marvin.cfg
-  sshpass -p 'P@ssword123' scp -o StrictHostKeyChecking=no boxes/$env/marvin.cfg root@$mgmt_ip:/marvin/
-  sshpass -p 'P@ssword123' scp -o StrictHostKeyChecking=no files/smoketests.sh root@$mgmt_ip:/marvin/
+  envsubst < $ROOT/marvin/kvm.cfg > $ROOT/boxes/$env/marvin.cfg
+  sshpass -p 'P@ssword123' scp -o StrictHostKeyChecking=no $ROOT/boxes/$env/marvin.cfg root@$mgmt_ip:/marvin/
+  sshpass -p 'P@ssword123' scp -o StrictHostKeyChecking=no $ROOT/files/smoketests.sh root@$mgmt_ip:/marvin/
 
+  # Deploy data center with generated config
   while ! nc -vzw 5 $mgmt_ip 8096 2>&1 > /dev/null; do echo "Waiting for management server to come up"; sleep 10; done
   echo "Management server is UP now, deploying data center now"
   sshpass -p 'P@ssword123' ssh -o StrictHostKeyChecking=no root@$mgmt_ip python /usr/lib/python2.7/site-packages/marvin/deployDataCenter.py -i /marvin/marvin.cfg
@@ -152,8 +161,8 @@ deploy() {
 test() {
   set +x
   echo "Please ssh into the env; cd /marvin; bash -x smoketests.sh:"
-  for env in  $(cat boxes/boxes.list); do
-    for vm in $(cat boxes/$env.list| grep mgmt1); do
+  for env in  $(cat $ROOT/boxes/boxes.list); do
+    for vm in $(cat $ROOT/boxes/$env.list| grep mgmt1); do
       echo "$env: ssh root@$vm"
     done
   done
@@ -162,17 +171,17 @@ test() {
 clean() {
   env=$1
   if [ -z "$env" ]; then
-    echo "Please pass a valid name, run 'mbx list' for list of available envs"
+    echo "Usage: mbx clean <env name>. Please pass a name, run 'mbx list' for list of available envs."
     return
   fi
-  for vm in $(cat boxes/$env.list); do
+  for vm in $(cat $ROOT/boxes/$env.list); do
     virsh destroy $vm;
     virsh undefine $vm;
   done
-  sed -i "/$env/d" boxes/boxes.list
-  rm -frv boxes/$env boxes/$env.list
-  rm -frv /export/testing/$env
-  "Removed environment VMs, storage and config"
+  sed -i "/$env/d" $ROOT/boxes/boxes.list
+  rm -frv $ROOT/boxes/$env $ROOT/boxes/$env.list
+  "Removed environment VMs and config, to remove storage run:"
+  echo "sudo rm -frv /export/testing/$env"
 }
 
 case "$1" in
@@ -185,4 +194,5 @@ case "$1" in
     deploy) deploy;;
     test) test;;
     clean) clean $2;;
+    *) usage;;
 esac
