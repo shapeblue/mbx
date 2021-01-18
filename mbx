@@ -37,8 +37,7 @@ build() {
 
 list() {
   echo
-  COUNTER=0
-  for env in  $(cat $ROOT/boxes/boxes.list); do
+  for env in $(cat $ROOT/boxes/boxes.list); do
     echo -e "Name: \033[4m$env\033[0m"
     for vm in $(cat $ROOT/boxes/$env/list); do
       ip=$(getent hosts $vm | awk '{ print $1 }')
@@ -54,12 +53,10 @@ list() {
     done
     echo
     options+=($env)
-    let COUNTER++
   done
   if [ ${#options[@]} -eq 0 ]; then
     echo "No mbx environments found"
   fi
-  echo
   echo "Following mbx templates are available:"
   virsh list --all | grep mbxt- | awk '{print $2}'
 }
@@ -77,6 +74,8 @@ deploy() {
     echo "Usage: mbx deploy <name of env> <mgmt server template> <hypervisor template> <repo> <storage source>"
     exit 0
   fi
+
+  set -x
 
   id=
   for idx in {1..9}; do
@@ -113,12 +112,12 @@ deploy() {
   echo $env >> $ROOT/boxes/boxes.list
 
   # Clone VMs from templates
+  virt-clone --original $mst --name $env-mgmt1 --file $ROOT/boxes/$env/$env-mgmt1.qcow2
+  echo $env-mgmt1 >> $ROOT/boxes/$env/list
   virt-clone --original $hyt --name $env-host1 --file $ROOT/boxes/$env/$env-host1.qcow2
   echo $env-host1 >> $ROOT/boxes/$env/list
   virt-clone --original $hyt --name $env-host2 --file $ROOT/boxes/$env/$env-host2.qcow2
   echo $env-host2 >> $ROOT/boxes/$env/list
-  virt-clone --original $mst --name $env-mgmt1 --file $ROOT/boxes/$env/$env-mgmt1.qcow2
-  echo $env-mgmt1 >> $ROOT/boxes/$env/list
 
   echo "Starting VMs"
   for domain in $(cat $ROOT/boxes/$env/list); do virsh start $domain; done;
@@ -126,6 +125,7 @@ deploy() {
   echo "Copying primary and secondary storages"
   env_storage="/export/testing/$env/"
   sudo cp -vr $storage $env_storage
+  sync
   echo "Primary and secondary storages are ready"
 
   echo "Initialising environment hosts"
@@ -137,30 +137,35 @@ deploy() {
       sleep 10
       ip=$(getent hosts $box | awk '{ print $1 }')
     done
-    while ! nc -vzw 5 $ip 22 2>&1 > /dev/null; do echo "Waiting for ssh on $box ($ip) to come up"; sleep 10; done
-    echo "$box is UP, setting up hostname"
+    while ! nc -vzw 10 $ip 22 2>&1 > /dev/null; do echo "Waiting for ssh on $box ($ip) to come up"; sleep 10; done
+    echo "$box is UP"
+    sleep 5
 
     # KVM and mgmt server
     if [[ "$hypervisor" == "kvm" || "$box" == "$env-mgmt1" ]]; then
       sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$box hostnamectl set-hostname $box
       sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$box "echo $ip $box >> /etc/hosts"
       sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$box "cat /etc/hosts"
+      echo "$box hostname fixed"
     fi
 
     # VMware: Start VC
     if [[ "$hypervisor" == "vmw" && "$box" == "$env-host1" ]]; then
-      sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$box vim-cmd vmsvc/power.on 1 || true
+      sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$box vim-cmd vmsvc/getallvms
+      sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$box vim-cmd vmsvc/power.on 1
+      echo "VC started"
     fi
     if [[ "$hypervisor" == "vmw" && "$box" == "$env-host2" ]]; then
-      sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$box vim-cmd vmsvc/unregister 1 || true
-      sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$box vim-cmd hostsvc/datastore/remove datastore1 || true
+      sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$box vim-cmd vmsvc/unregister 1
+      sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$box vim-cmd vmsvc/getallvms
+      sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$box vim-cmd hostsvc/datastore/remove datastore1
+      echo "VC and datastore1 on other ESXi host cleaned"
     fi
 
     # XenServer: fix UUID
     if [[ $hypervisor == "xen" || $hypervisor == "xcp" ]]; then
       echo "ssh and fix XS/xcp host"
     fi
-
   done
 
   # FIXME: configure provided rpm/deb repo on hosts
