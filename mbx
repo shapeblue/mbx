@@ -79,7 +79,7 @@ deploy() {
   fi
 
   id=
-  for idx in {1..20}; do
+  for idx in {1..9}; do
     if ! grep -q qa-$idx- $ROOT/boxes/boxes.list; then
       id=$idx
       break
@@ -123,11 +123,14 @@ deploy() {
   echo "Starting VMs"
   for domain in $(cat $ROOT/boxes/$env/list); do virsh start $domain; done;
 
+  echo "Copying primary and secondary storages"
   env_storage="/export/testing/$env/"
   sudo cp -vr $storage $env_storage
   echo "Primary and secondary storages are ready"
 
+  echo "Initialising environment hosts"
   for box in $(cat $ROOT/boxes/$env/list); do
+    echo "Configuring host $box"
     ip=$(getent hosts $box | awk '{ print $1 }')
     while [ -z $ip ]; do
       echo "Waiting for $box DHCP to kick-in..."
@@ -150,7 +153,7 @@ deploy() {
     fi
     if [[ "$hypervisor" == "vmw" && "$box" == "$env-host2" ]]; then
       sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$box vim-cmd vmsvc/unregister 1 || true
-      sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$box hostsvc/datastore/remove datastore1 || true
+      sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$box vim-cmd hostsvc/datastore/remove datastore1 || true
     fi
 
     # XenServer: fix UUID

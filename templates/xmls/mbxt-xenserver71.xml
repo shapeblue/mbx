@@ -1,9 +1,9 @@
 <domain type='kvm'>
   <name>mbxt-xenserver71</name>
   <uuid>cc6c404d-bfbd-44b4-ac4f-5dd5dcc9daaa</uuid>
-  <memory unit='KiB'>8392704</memory>
-  <currentMemory unit='KiB'>8392704</currentMemory>
-  <vcpu placement='static'>8</vcpu>
+  <memory unit='KiB'>6291456</memory>
+  <currentMemory unit='KiB'>6291456</currentMemory>
+  <vcpu placement='static'>6</vcpu>
   <os>
     <type arch='x86_64' machine='pc-i440fx-focal'>hvm</type>
     <boot dev='hd'/>

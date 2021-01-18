@@ -1,9 +1,9 @@
 <domain type='kvm'>
   <name>mbxt-xcpng76</name>
   <uuid>c948ce2c-5273-4f23-9456-da1647e74e72</uuid>
-  <memory unit='KiB'>8392704</memory>
-  <currentMemory unit='KiB'>8392704</currentMemory>
-  <vcpu placement='static'>8</vcpu>
+  <memory unit='KiB'>6291456</memory>
+  <currentMemory unit='KiB'>6291456</currentMemory>
+  <vcpu placement='static'>6</vcpu>
   <os>
     <type arch='x86_64' machine='pc-i440fx-focal'>hvm</type>
     <boot dev='hd'/>
