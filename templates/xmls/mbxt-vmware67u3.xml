@@ -1,8 +1,8 @@
 <domain type='kvm'>
   <name>mbxt-vmware67u3</name>
-  <uuid>ecd9bf1c-d6fa-4794-a8d7-8e936694a0a2</uuid>
-  <memory unit='KiB'>8392704</memory>
-  <currentMemory unit='KiB'>8392704</currentMemory>
+  <uuid>4c72be3c-21c4-444f-8a6e-9df1434d77d3</uuid>
+  <memory unit='KiB'>16777216</memory>
+  <currentMemory unit='KiB'>16777216</currentMemory>
   <vcpu placement='static'>8</vcpu>
   <os>
     <type arch='x86_64' machine='pc-i440fx-focal'>hvm</type>
@@ -57,7 +57,7 @@
       <address type='pci' domain='0x0000' bus='0x00' slot='0x06' function='0x0'/>
     </controller>
     <interface type='network'>
-      <mac address='52:54:00:d5:f6:02'/>
+      <mac address='52:54:00:32:2c:73'/>
       <source network='monkeynet'/>
       <model type='e1000'/>
       <address type='pci' domain='0x0000' bus='0x00' slot='0x03' function='0x0'/>

@@ -3,8 +3,6 @@
 set -e
 
 ROOT=/export/monkeybox
-
-# Initialise
 mkdir -p $ROOT/boxes
 touch $ROOT/boxes/boxes.list
 export LIBVIRT_DEFAULT_URI="qemu:///system"
@@ -14,12 +12,11 @@ echo MonkeyBox 🐵 1.0
 usage() {
   echo "Available commands are:"
   echo "   install: setup monkeynet and mbx templates"
-  echo "   list: list available environments"
   echo "   build: build packages from git repo and sha/tag/branch"
+  echo "   list: list available environments"
   echo "   deploy: deploy monkeybox VMs using mbx templates, setup storage"
   echo "   launch: creates marvin config file and launches a zone"
   echo "   test: start marvin tests"
-  echo "   stop: stop monkeyboxes"
   echo "   destroy: destroy environment"
 }
 
@@ -33,18 +30,27 @@ install() {
   sudo cp $ROOT/files/sudoer.mbx /etc/sudoers.d/mbx
 }
 
+build() {
+  echo "Build Packages, please input git repo URL and git/sha/branch"
+  echo "TODO"
+}
+
 list() {
   echo
   COUNTER=0
   for env in  $(cat $ROOT/boxes/boxes.list); do
     echo -e "Name: \033[4m$env\033[0m"
-    for vm in $(cat $ROOT/boxes/$env.list); do
+    for vm in $(cat $ROOT/boxes/$env/list); do
       ip=$(getent hosts $vm | awk '{ print $1 }')
       url=""
       if [[ $vm == *"mgmt"* ]]; then
         url="http://$ip:8080/client"
       fi
       echo -e "$vm\t$ip\t$url"
+      if [[ $vm == *vmw-host1* ]]; then
+        vcip=$(sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$vm vim-cmd "vmsvc/get.guest 1 | grep ipAddress | head -1 | sed 's/.*ipAddress = \"//g' | sed 's/\".*//g'" 2> /dev/null)
+        echo -e "VC (photon-machine)\t$vcip\thttps://$vcip/"
+      fi
     done
     echo
     options+=($env)
@@ -58,45 +64,70 @@ list() {
   virsh list --all | grep mbxt- | awk '{print $2}'
 }
 
-build() {
-  echo "Build Packages, please input git repo URL and git/sha/branch"
-  echo "TODO"
+check_mbxt() {
+  if ! virsh list --all | grep mbxt-| grep -q $2; then
+    echo "Provided $1 template $2 not found, run 'mbx list' to see list of valid templates"
+    exit 1
+  fi
 }
 
 deploy() {
-  echo "Creating and starting monkeyboxes"
-  echo FIXME: take input for name, mgmt server, hypervisor and their counts
-  echo FIXME: find and use available ID
+  # Usage: <name> <mgmt server template> <hypervisor template> <repo> <storage source>
+  if [[ "$1" == "-h" ]]; then
+    echo "Usage: mbx deploy <name of env> <mgmt server template> <hypervisor template> <repo> <storage source>"
+    exit 0
+  fi
 
-  id=1
-  name="ry-415"
-  env="qa-$id-$name"
+  id=
+  for idx in {1..20}; do
+    if ! grep -q qa-$idx- $ROOT/boxes/boxes.list; then
+      id=$idx
+      break
+    fi
+  done
+  if [ -z $id ]; then
+    echo "Unable to deploy an env, all 20 slots full"
+    exit 1
+  fi
+
+  name=${1:-"mbxe"}
+  mst=${2:-"mbxt-kvm-centos7"}
+  hyt=${3:-"mbxt-kvm-centos7"}
+  # Validate input templates
+  check_mbxt mgmt $mst
+  check_mbxt hypervisor $hyt
+
+  hypervisor=$(echo $hyt |  awk '{print substr($0,6,3)}')
+  repo=${4:-"http://packages.shapeblue.com/cloudstack/upstream/centos7/4.15"}
+  storage=${5:-"/export/testing/4.15"}
+  env="qa-$id-$name-$hypervisor"
+
+  echo -e "Building env with name: \033[4m$env\033[0m"
+  echo "Management server template: $mst"
+  echo "Hypervisor template: $hyt"
+  echo "Repository: $repo"
+  echo "Storage source: $storage"
+
   mkdir -p $ROOT/boxes/$env
-
   # Save env name
   echo $env >> $ROOT/boxes/boxes.list
 
-  # Clone in boxes directory
-  echo "Cloning mbx templates"
-  virt-clone --original mbxt-kvm-centos7 --name $env-kvm1 --file $ROOT/boxes/$env/centos7-kvm1.qcow2
-  echo $env-kvm1 >> $ROOT/boxes/$env.list
-  virt-clone --original mbxt-kvm-centos7 --name $env-kvm2 --file $ROOT/boxes/$env/centos7-kvm2.qcow2
-  echo $env-kvm2 >> $ROOT/boxes/$env.list
-  mgmt="$env-mgmt1"
-  virt-clone --original mbxt-kvm-centos7 --name $mgmt --file $ROOT/boxes/$env/centos7-mgmt1.qcow2
-  echo $env-mgmt1 >> $ROOT/boxes/$env.list
+  # Clone VMs from templates
+  virt-clone --original $hyt --name $env-host1 --file $ROOT/boxes/$env/$env-host1.qcow2
+  echo $env-host1 >> $ROOT/boxes/$env/list
+  virt-clone --original $hyt --name $env-host2 --file $ROOT/boxes/$env/$env-host2.qcow2
+  echo $env-host2 >> $ROOT/boxes/$env/list
+  virt-clone --original $mst --name $env-mgmt1 --file $ROOT/boxes/$env/$env-mgmt1.qcow2
+  echo $env-mgmt1 >> $ROOT/boxes/$env/list
 
   echo "Starting VMs"
-  for domain in $(cat $ROOT/boxes/$env.list); do virsh start $domain; done;
+  for domain in $(cat $ROOT/boxes/$env/list); do virsh start $domain; done;
 
-  # FIXME: copy from pristine storage folder
-  goldmaster="/export/testing/4.15"
-  storage_path="/export/testing/$env/"
-  sudo cp -vr $goldmaster $storage_path
+  env_storage="/export/testing/$env/"
+  sudo cp -vr $storage $env_storage
   echo "Primary and secondary storages are ready"
 
-  sleep 30
-  for box in $(cat $ROOT/boxes/$env.list); do
+  for box in $(cat $ROOT/boxes/$env/list); do
     ip=$(getent hosts $box | awk '{ print $1 }')
     while [ -z $ip ]; do
       echo "Waiting for $box DHCP to kick-in..."
@@ -105,66 +136,112 @@ deploy() {
     done
     while ! nc -vzw 5 $ip 22 2>&1 > /dev/null; do echo "Waiting for ssh on $box ($ip) to come up"; sleep 10; done
     echo "$box is UP, setting up hostname"
-    # FIXME: different templates/os/hyp need different setup steps
-    sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$box hostnamectl set-hostname $box
-    sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$box "echo $ip $box >> /etc/hosts"
-    sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$box "cat /etc/hosts"
+
+    # KVM and mgmt server
+    if [[ "$hypervisor" == "kvm" || "$box" == "$env-mgmt1" ]]; then
+      sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$box hostnamectl set-hostname $box
+      sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$box "echo $ip $box >> /etc/hosts"
+      sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$box "cat /etc/hosts"
+    fi
+
+    # VMware: Start VC
+    if [[ "$hypervisor" == "vmw" && "$box" == "$env-host1" ]]; then
+      sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$box vim-cmd vmsvc/power.on 1 || true
+    fi
+    if [[ "$hypervisor" == "vmw" && "$box" == "$env-host2" ]]; then
+      sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$box vim-cmd vmsvc/unregister 1 || true
+      sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$box hostsvc/datastore/remove datastore1 || true
+    fi
+
+    # XenServer: fix UUID
+    if [[ $hypervisor == "xen" || $hypervisor == "xcp" ]]; then
+      echo "ssh and fix XS/xcp host"
+    fi
+
   done
 
   # FIXME: configure provided rpm/deb repo on hosts
 
-  # Install: Management Server
-  mgmt_ip=$(getent hosts $mgmt | awk '{ print $1 }')
-  sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$mgmt systemctl enable --now mariadb
-  sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$mgmt yum install -y cloudstack-management cloudstack-usage cloudstack-common cloudstack-integration-tests cloudstack-marvin
-  sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$mgmt "cloudstack-setup-databases cloud:cloud@localhost --deploy-as=root: -i $mgmt_ip"
-  sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$mgmt "mysql -u root --execute=\"INSERT INTO cloud.configuration (category, instance, component, name, value) VALUES ('Advanced', 'DEFAULT', 'management-server', 'integration.api.port', '8096');\""
-  sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$mgmt cloudstack-setup-management
+  # Setup Management Server
+  msip=$(getent hosts $env-mgmt1 | awk '{ print $1 }')
+  sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$msip systemctl enable --now mariadb
+  sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$msip yum install -y cloudstack-management cloudstack-usage cloudstack-common cloudstack-integration-tests cloudstack-marvin
+  sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$msip "cloudstack-setup-databases cloud:cloud@localhost --deploy-as=root: -i $msip"
+  sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$msip "mysql -u root --execute=\"INSERT INTO cloud.configuration (category, instance, component, name, value) VALUES ('Advanced', 'DEFAULT', 'management-server', 'integration.api.port', '8096');\""
+  sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$msip cloudstack-setup-management
 
-  # Install: KVM hosts
-  sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$env-kvm1 yum install -y cloudstack-agent
-  sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$env-kvm2 yum install -y cloudstack-agent
+  # Setup KVM hosts
+  if [[ $hypervisor == "kvm" ]]; then
+    sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$env-host1 yum install -y cloudstack-agent
+    sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$env-host2 yum install -y cloudstack-agent
+  fi
 
-  echo "VMs deployed, to launch zone run 'mbx launch'"
-}
-
-launch() {
-  echo "Launching CloudStack Zone in the environment:"
-  # FIXME: get env from user/input
-  env="qa-1-ry-415"
-  id=$(echo $env | sed 's/qa-//g' | sed 's/-.*//g')
-  for box in $(cat $ROOT/boxes/$env.list); do
-    ip=$(getent hosts $box | awk '{ print $1 }')
-    echo $ip $box
-  done
-
-  # Generate Marvin Config
-  mgmt="$env-mgmt1"
-  mgmt_ip=$(getent hosts $mgmt | awk '{ print $1 }')
+  # Generate marvin config
+  msip=$(getent hosts $env-mgmt1 | awk '{ print $1 }')
   export vlan="$(echo $id*100|bc)-$(echo $id*100*2-1|bc)"
   export public_start="172.20.$id.10"
   export public_end="172.20.$id.200"
   export pod_start="172.20.$(echo $id*10| bc).10"
   export pod_end="172.20.$(echo $id*10| bc).200"
-  export kvm_host1=$(getent hosts $env-kvm1 | awk '{ print $1 }')
-  export kvm_host2=$(getent hosts $env-kvm2 | awk '{ print $1 }')
+  export host1=$(getent hosts $env-host1 | awk '{ print $1 }')
+  export host2=$(getent hosts $env-host2 | awk '{ print $1 }')
   export storage_path="/export/testing/$env"
-  envsubst < $ROOT/marvin/kvm.cfg > $ROOT/boxes/$env/marvin.cfg
-  sshpass -p 'P@ssword123' scp -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" $ROOT/boxes/$env/marvin.cfg root@$mgmt_ip:/marvin/
-  sshpass -p 'P@ssword123' scp -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" $ROOT/files/smoketests.sh root@$mgmt_ip:/marvin/
 
-  # Deploy data center with generated config
-  while ! nc -vzw 5 $mgmt_ip 8096 2>&1 > /dev/null; do echo "Waiting for management server to come up"; sleep 10; done
+  # Find VC IP
+  export vcip=
+  if [[ $hypervisor == "vmw" ]]; then
+    while : ; do
+      vcip=$(sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$env-host1 vim-cmd "vmsvc/get.guest 1 | grep ipAddress | head -1 | sed 's/.*ipAddress = \"//g' | sed 's/\".*//g'")
+      if [[ "$vcip" == *"unset"* ]]; then
+        echo "Waiting for VC to be UP"
+        sleep 5
+      else
+        echo "VC IP found: $vcip"
+        break
+      fi
+    done
+    while [[ "$(curl -sL -w '%{http_code}' https://${vcip}/sdk/vimService.wsdl --insecure -o /dev/null)" != "200" ]]; do
+      echo "Waiting for VC vim service to be UP"
+      sleep 5
+    done
+    # Check vim service and add hosts cluster
+    host1=$(getent hosts $env-host1 | awk '{ print $1 }')
+    host2=$(getent hosts $env-host2 | awk '{ print $1 }')
+    $ROOT/files/govc cluster.add -k=true -u=https://administrator@vsphere.local:P@ssword123@$vcip/sdk -cluster "/DC/host/Cluster" -noverify -force -hostname $host1 -username root -password P@ssword123
+    $ROOT/files/govc cluster.add -k=true -u=https://administrator@vsphere.local:P@ssword123@$vcip/sdk -cluster "/DC/host/Cluster" -noverify -force -hostname $host2 -username root -password P@ssword123
+  fi
+
+  envsubst < $ROOT/marvin/$hypervisor.cfg > $ROOT/boxes/$env/marvin.cfg
+  echo "VMs deployed and marvin config generated, to launch zone run 'mbx launch'"
+}
+
+launch() {
+  set -x
+  echo "Launching CloudStack Zone in the environment:"
+  env=$1
+  if [ -z $env ]; then
+    echo "Please provide a valid env name, run 'mbx list' to find name of environments"
+    exit 1
+  fi
+  id=$(echo $env | sed 's/qa-//g' | sed 's/-.*//g')
+  echo "Generating marvin config for env ID $id"
+
+  msip=$(getent hosts $env-mgmt1 | awk '{ print $1 }')
+  sshpass -p 'P@ssword123' scp -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" $ROOT/boxes/$env/marvin.cfg root@$msip:/marvin/
+  sshpass -p 'P@ssword123' scp -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" $ROOT/files/smoketests.sh root@$msip:/marvin/
+  while ! nc -vzw 5 $msip 8096 2>&1 > /dev/null; do echo "Waiting for management server to come up"; sleep 10; done
   echo "Management server is UP now, launching data center now"
-  sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$mgmt_ip python /usr/lib/python2.7/site-packages/marvin/deployDataCenter.py -i /marvin/marvin.cfg
-  echo "Launched: http://$mgmt_ip:8080/client"
+
+  # Deploy marvin datacenter
+  sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$msip python /usr/lib/python2.7/site-packages/marvin/deployDataCenter.py -i /marvin/marvin.cfg
+  echo "Launched: http://$msip:8080/client"
 }
 
 test() {
   set +x
   echo "Please ssh into the env; cd /marvin; bash -x smoketests.sh:"
   for env in  $(cat $ROOT/boxes/boxes.list); do
-    for vm in $(cat $ROOT/boxes/$env.list| grep mgmt1); do
+    for vm in $(cat $ROOT/boxes/$env/list| grep mgmt1); do
       echo "$env: ssh root@$vm"
     done
   done
@@ -176,14 +253,14 @@ destroy() {
     echo "Usage: mbx destroy <env name>. Please pass a name, run 'mbx list' for list of available envs."
     return
   fi
-  for vm in $(cat $ROOT/boxes/$env.list); do
-    virsh destroy $vm;
+  for vm in $(cat $ROOT/boxes/$env/list); do
+    virsh destroy $vm || true;
     virsh undefine $vm;
   done
   sed -i "/$env/d" $ROOT/boxes/boxes.list
-  rm -frv $ROOT/boxes/$env $ROOT/boxes/$env.list
-  echo "Removed environment VMs and config, to remove storage run:"
-  echo "sudo rm -frv /export/testing/$env"
+  rm -frv $ROOT/boxes/$env
+  echo "Removed environment VMs and config"
+  echo "To remove storage run: sudo rm -frv /export/testing/$env"
 }
 
 case "$1" in
@@ -192,8 +269,8 @@ case "$1" in
     install) install;;
     list) list;;
     build) build;;
-    deploy) deploy;;
-    launch) launch;;
+    deploy) deploy ${@:2};;
+    launch) launch $2;;
     test) test;;
     destroy) destroy $2;;
     *) usage;;
