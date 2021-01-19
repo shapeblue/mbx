@@ -111,13 +111,24 @@ deploy() {
   # Save env name
   echo $env >> $ROOT/boxes/boxes.list
 
-  # Clone VMs from templates
+  # Clone mgmt server
   virt-clone --original $mst --name $env-mgmt1 --file $ROOT/boxes/$env/$env-mgmt1.qcow2
   echo $env-mgmt1 >> $ROOT/boxes/$env/list
+  virsh setmaxmem $env-mgmt1 4G --config
+
+  # Clone hypervisor host1
   virt-clone --original $hyt --name $env-host1 --file $ROOT/boxes/$env/$env-host1.qcow2
   echo $env-host1 >> $ROOT/boxes/$env/list
+  virsh setmaxmem $env-host1 6G --config
+  if [[ "$hypervisor" == "vmw" ]]; then
+    # VC runs on 1st ESXi host
+    virsh setmaxmem $env-host1 16G --config
+  fi
+
+  # Clone hypervisor host2
   virt-clone --original $hyt --name $env-host2 --file $ROOT/boxes/$env/$env-host2.qcow2
   echo $env-host2 >> $ROOT/boxes/$env/list
+  virsh setmaxmem $env-host2 6G --config
 
   echo "Starting VMs"
   for domain in $(cat $ROOT/boxes/$env/list); do virsh start $domain; done;
@@ -142,7 +153,7 @@ deploy() {
     sleep 5
 
     # KVM and mgmt server
-    if [[ "$hypervisor" == "kvm" || "$box" == "$env-mgmt1" ]]; then
+    if [[ "$hypervisor" == "kvm" || "$hypervisor" == "xen" || "$hypervisor" == "xcp" || "$box" == "$env-mgmt1" ]]; then
       sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$box hostnamectl set-hostname $box
       sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$box "echo $ip $box >> /etc/hosts"
       sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$box "cat /etc/hosts"
@@ -162,9 +173,12 @@ deploy() {
       echo "VC and datastore1 on other ESXi host cleaned"
     fi
 
-    # XenServer: fix UUID
-    if [[ $hypervisor == "xen" || $hypervisor == "xcp" ]]; then
-      echo "ssh and fix XS/xcp host"
+    # XenServer: Make hosts unique
+    if [[ "$hypervisor" == "xen" || "$hypervisor" == "xcp" ]]; then
+      if [[ "$box" == "$env-host1" || "$box" == "$env-host2" ]]; then
+        sshpass -p 'P@ssword123' scp -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" $ROOT/files/xenfix.sh root@$box:/root/
+        sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" -o "ServerAliveInterval 2" root@$box "bash -x /root/xenfix.sh" || true
+      fi
     fi
   done
 
@@ -181,7 +195,16 @@ deploy() {
   # Setup KVM hosts
   if [[ $hypervisor == "kvm" ]]; then
     sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$env-host1 yum install -y cloudstack-agent
+    sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$env-host1 "echo host.reserved.mem.mb=512 >> /etc/cloudstack/agent/agent.properties"
     sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$env-host2 yum install -y cloudstack-agent
+    sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$env-host2 "echo host.reserved.mem.mb=512 >> /etc/cloudstack/agent/agent.properties"
+  fi
+
+  # Setup xen/xcp hosts
+  if [[ $hypervisor == "xen" || $hypervisor == "xcp" ]]; then
+    masterip=$(getent hosts $env-host1 | awk '{ print $1 }')
+    sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$env-host1 "xe pool-param-set name-label=${env}1 uuid=\$(xe pool-list --minimal)"
+    sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$env-host2 "xe pool-join master-address=${masterip} master-username=root master-password=P@ssword123"
   fi
 
   # Generate marvin config
