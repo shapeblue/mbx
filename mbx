@@ -260,6 +260,7 @@ launch() {
   msip=$(getent hosts $env-mgmt1 | awk '{ print $1 }')
   sshpass -p 'P@ssword123' scp -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" $ROOT/boxes/$env/marvin.cfg root@$msip:/marvin/
   sshpass -p 'P@ssword123' scp -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" $ROOT/files/smoketests.sh root@$msip:/marvin/
+  sshpass -p 'P@ssword123' scp -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" $ROOT/files/result.py root@$msip:/marvin/
   while ! nc -vzw 5 $msip 8096 2>&1 > /dev/null; do echo "Waiting for management server to come up"; sleep 10; done
   echo "Management server is UP now, launching data center now"
 
