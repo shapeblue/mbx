@@ -140,17 +140,18 @@ deploy() {
   echo "Primary and secondary storages are ready"
 
   echo "Initialising environment hosts"
+  sleep 60
   for box in $(cat $ROOT/boxes/$env/list); do
     echo "Configuring host $box"
     ip=$(getent hosts $box | awk '{ print $1 }')
     while [ -z $ip ]; do
       echo "Waiting for $box DHCP to kick-in..."
-      sleep 10
+      sleep 20
       ip=$(getent hosts $box | awk '{ print $1 }')
     done
     while ! nc -vzw 10 $ip 22 2>&1 > /dev/null; do echo "Waiting for ssh on $box ($ip) to come up"; sleep 10; done
     echo "$box is UP"
-    sleep 5
+    sleep 20
 
     # KVM and mgmt server
     if [[ "$hypervisor" == "kvm" || "$hypervisor" == "xen" || "$hypervisor" == "xcp" || "$box" == "$env-mgmt1" ]]; then
