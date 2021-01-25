@@ -3,7 +3,7 @@
   <uuid>c948ce2c-5273-4f23-9456-da1647e74e72</uuid>
   <memory unit='KiB'>6291456</memory>
   <currentMemory unit='KiB'>6291456</currentMemory>
-  <vcpu placement='static'>6</vcpu>
+  <vcpu placement='static'>4</vcpu>
   <os>
     <type arch='x86_64' machine='pc-i440fx-focal'>hvm</type>
     <boot dev='hd'/>
@@ -13,7 +13,7 @@
     <apic/>
     <vmport state='off'/>
   </features>
-  <cpu mode='host-model' check='partial'/>
+  <cpu mode='host-passthrough' check='partial'/>
   <clock offset='utc'>
     <timer name='rtc' tickpolicy='catchup'/>
     <timer name='pit' tickpolicy='delay'/>
