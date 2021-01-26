@@ -243,6 +243,10 @@ deploy() {
     $ROOT/files/govc cluster.add -k=true -u=https://administrator@vsphere.local:P@ssword123@$vcip/sdk -cluster "/DC/host/Cluster" -noverify -force -hostname $host2 -username root -password P@ssword123
   fi
 
+  if [[ $hypervisor == "xcp" ]]; then
+    hypervisor="xen"
+  fi
+
   envsubst < $ROOT/marvin/$hypervisor.cfg > $ROOT/boxes/$env/marvin.cfg
   echo "VMs deployed and marvin config generated, to launch zone run 'mbx launch'"
 }
