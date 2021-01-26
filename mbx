@@ -178,7 +178,7 @@ deploy() {
 
     # XenServer: Make hosts unique
     if [[ "$hypervisor" == "xen" || "$hypervisor" == "xcp" ]]; then
-      if [[ "$box" == "$env-host1" || "$box" == "$env-host2" ]]; then
+      if [[ "$box" == "$env-host2" ]]; then
         sshpass -p 'P@ssword123' scp -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" $ROOT/files/xenfix.sh root@$box:/root/
         sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" -o "ServerAliveInterval 2" root@$box "bash -x /root/xenfix.sh" || true
       fi
