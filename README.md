@@ -24,12 +24,16 @@ We require that you install nfs and run it from /export:
     git clone https://github.com/rhtyd/mbx.git monkeybox
     cd monkeybox
     sudo cp files/sudoer.mbx /etc/sudoers.d/mbx
+    # Enable mbx under $PATH, for bash:
+    echo export PATH="/export/monkeybox:$PATH" >> ~/.bashrc
+    # Enable mbx under $PATH, for zsh:
+    echo export PATH="/export/monkeybox:$PATH" >> ~/.zshrc
 
 ## Install KVM on your Laptop
 
 Install KVM using following:
 
-    # apt-get install qemu-kvm libvirt-bin bridge-utils cpu-checker
+    # apt-get install qemu-kvm libvirt-daemon bridge-utils cpu-checker
     # kvm-ok
 
 Install Libvirt NSS for name resolution:
@@ -80,7 +84,7 @@ multiple virtual networks and nics on them.
 
 To setup the network run:
 
-    $ ./mbx install
+    $ mbx install
 
 This essentially runs:
 
@@ -139,6 +143,35 @@ run in management VMs and their IPs will be dynamically allocated.
 To ssh into deployed VMs (with NSS configured), you can login simply using:
 
     $ ssh root@<name of VM/domain>
+
+### Storage Setup
+
+After setting up NFS on the host/laptop, you need to create a storage golden
+master directory that contains two primary storages and secondary storage folder
+with the systemvmtemplate for a specific version of CloudStack seeded. The
+storage golden master is used as storage source of a mbx environment during `mbx
+deploy`.
+
+For example, the following is needed only one-time for creating a golden master
+storage directory for 4.15 version:
+
+  mkdir -p /export/testing
+  # Create directory layout for a specific ACS version under /export/testing
+  mkdir -p /export/testing/4.15/{primary1,primary2,secondary}
+  # Get the systemvm templates
+  cd /export/testing/4.15
+  wget http://packages.shapeblue.com/systemvmtemplate/4.15/systemvmtemplate-4.15.0-kvm.qcow2.bz2
+  wget http://packages.shapeblue.com/systemvmtemplate/4.15/systemvmtemplate-4.15.0-vmware.ova
+  wget http://packages.shapeblue.com/systemvmtemplate/4.15/systemvmtemplate-4.15.0-xen.vhd.bz2
+  wget http://packages.shapeblue.com/systemvmtemplate/4.15/md5sum.txt
+  # Check the downloaded templates, it should say OK for the three templates
+  md5sum --check md5sum.txt
+  # Seed template in the secondary folder for 4.15
+  /export/monkeybox/files/setup-systemvmtemplate.sh -m /export/testing/4.15/secondary -f systemvmtemplate-4.15.0-kvm.qcow2.bz2 -h kvm
+  /export/monkeybox/files/setup-systemvmtemplate.sh -m /export/testing/4.15/secondary -f systemvmtemplate-4.15.0-vmware.ova -h vmware
+  /export/monkeybox/files/setup-systemvmtemplate.sh -m /export/testing/4.15/secondary -f systemvmtemplate-4.15.0-xen.vhd.bz2 -h xenserver
+  # Cleanup downloaded files
+  rm -fv md5sum.txt systemvmtemplate*
 
 ## CloudStack Development
 
