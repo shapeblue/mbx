@@ -29,6 +29,11 @@ We require that you install nfs and run it from /export:
     # Enable mbx under $PATH, for zsh:
     echo export PATH="/export/monkeybox:$PATH" >> ~/.zshrc
 
+Fixing permissions for libvirt-qemu:
+
+    sudo getfacl -e /export
+    sudo setfacl -m u:libvirt-qemu:rx /export
+
 ## Install KVM on your Laptop
 
 Install KVM using following:

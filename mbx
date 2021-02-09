@@ -47,7 +47,7 @@ list() {
       fi
       echo -e "$vm\t$ip\t$url"
       if [[ $vm == *vmw-host1* ]]; then
-        vcip=$(sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$vm vim-cmd "vmsvc/get.guest 1 | grep ipAddress | head -1 | sed 's/.*ipAddress = \"//g' | sed 's/\".*//g'" 2> /dev/null)
+        vcip=$(sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$vm vim-cmd "vmsvc/get.guest 1 | grep ipAddress | head -1 | sed 's/.*ipAddress = \"//g' | sed 's/\".*//g'" 2> /dev/null) || true
         echo -e "VC (photon-machine)\t$vcip\thttps://$vcip/"
       fi
     done
@@ -250,7 +250,7 @@ deploy() {
   fi
 
   envsubst < $ROOT/marvin/$hypervisor.cfg > $ROOT/boxes/$env/marvin.cfg
-  echo "VMs deployed and marvin config generated, to launch zone run 'mbx launch'"
+  echo "VMs deployed and marvin config generated, to launch zone run 'mbx launch $env'"
 }
 
 launch() {
@@ -293,7 +293,7 @@ destroy() {
     return
   fi
   for vm in $(cat $ROOT/boxes/$env/list); do
-    virsh destroy $vm || true;
+    virsh destroy $vm 2> /dev/null || true;
     virsh undefine $vm;
   done
   sed -i "/$env/d" $ROOT/boxes/boxes.list
