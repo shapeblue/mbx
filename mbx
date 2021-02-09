@@ -116,7 +116,8 @@ deploy() {
   hypervisor=$(echo $hyt |  awk '{print substr($0,6,3)}')
   repo=${4:-"http://packages.shapeblue.com/cloudstack/upstream/centos7/4.15"}
   storage=${5:-"/export/testing/4.15"}
-  env="qa$id-$name-$hypervisor"
+  uuid=$(cat /proc/sys/kernel/random/uuid | sed 's/-.*//g')
+  env="qa$id-$name-$uuid-$hypervisor"
 
   echo -e "Building env with name: \033[4m$env\033[0m"
   echo "Management server template: $mst"
@@ -195,6 +196,9 @@ deploy() {
 
     # XenServer: Make hosts unique
     if [[ "$hypervisor" == "xen" || "$hypervisor" == "xcp" ]]; then
+      if [[ "$box" == "$env-host1" ]]; then
+        sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$box "xe host-param-set uuid=\$(xe host-list params=uuid|awk {'print \$5'} | head -n 1) name-label=$env-host1"
+      fi
       if [[ "$box" == "$env-host2" ]]; then
         sshpass -p 'P@ssword123' scp -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" $ROOT/files/xenfix.sh root@$box:/root/
         sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" -o "ServerAliveInterval 2" root@$box "bash -x /root/xenfix.sh" || true
@@ -229,11 +233,11 @@ deploy() {
 
   # Generate marvin config
   msip=$(getent hosts $env-mgmt1 | awk '{ print $1 }')
-  export vlan="$(echo $id*100|bc)-$(echo $id*100*2-1|bc)"
-  export public_start="172.20.$id.10"
-  export public_end="172.20.$id.200"
-  export pod_start="172.20.$(echo $id*10| bc).10"
-  export pod_end="172.20.$(echo $id*10| bc).200"
+  export vlan="$(echo $id*100|bc)-$(echo $id*100+99|bc)"
+  export public_start="172.20.$id.1"
+  export public_end="172.20.$id.125"
+  export pod_start="172.20.$id.126"
+  export pod_end="172.20.$id.250"
   export host1=$(getent hosts $env-host1 | awk '{ print $1 }')
   export host2=$(getent hosts $env-host2 | awk '{ print $1 }')
   export storage_path="/export/testing/$env"
@@ -339,10 +343,8 @@ destroy() {
     virsh undefine $vm;
   done
   sed -i "/$env/d" $ROOT/boxes/boxes.list
-  rm -frv $ROOT/boxes/$env
-  echo "Removed environment VMs and config"
-  echo "To remove storage run:"
-  echo "  sudo rm -frv /export/testing/$env"
+  rm -fr $ROOT/boxes/$env
+  sudo rm -fr /export/testing/$env
 }
 
 case "$1" in
