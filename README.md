@@ -13,10 +13,51 @@ Notes:
   please uninstall it before proceeding further.
 - Default password for the root user is `P@ssword123`.
 
-Setup NFS on /export (see setting up NFS), install mbx templates (mbxt) as
-follows:
+## Installation
 
-    mkdir -p /export
+NFS server and KVM are prerequisites to using `mbx`.
+
+### Install and setup NFS
+
+    apt-get install nfs-kernel-server quota
+    echo "/export  *(rw,async,no_root_squash,no_subtree_check)" > /etc/exports
+    mkdir -p /export/testing
+    exportfs -a
+    sed -i -e 's/^RPCMOUNTDOPTS="--manage-gids"$/RPCMOUNTDOPTS="-p 892 --manage-gids"/g' /etc/default/nfs-kernel-server
+    sed -i -e 's/^STATDOPTS=$/STATDOPTS="--port 662 --outgoing-port 2020"/g' /etc/default/nfs-common
+    echo "NEED_STATD=yes" >> /etc/default/nfs-common
+    sed -i -e 's/^RPCRQUOTADOPTS=$/RPCRQUOTADOPTS="-p 875"/g' /etc/default/quota
+    service nfs-kernel-server restart
+
+### Install and setup KVM
+
+    apt-get install qemu-kvm libvirt-daemon bridge-utils cpu-checker nfs-kernel-server quota
+    kvm-ok
+
+Fixing permissions for libvirt-qemu:
+
+    sudo getfacl -e /export
+    sudo setfacl -m u:libvirt-qemu:rx /export
+
+Install Libvirt NSS for name resolution:
+
+    apt-get install libnss-libvirt
+
+Next, add the following so that `grep -w 'hosts:' /etc/nsswitch.conf` returns:
+
+    files libvirt libvirt_guest dns mymachines
+
+Install `virt-manager`, the virtual machine manager graphical tool to manage VMs
+on your machine:
+
+    apt-get install virt-manager
+
+![VM Manager](doc/images/virt-manager.png)
+
+Install docker for packaging: https://docs.docker.com/engine/install/ubuntu/
+
+### Install `mbx`
+
     git clone https://github.com/shapeblue/mbx /export/monkeybox
     cd /export/monkeybox/templates
     # Download pre-built mbx templates
@@ -35,38 +76,7 @@ follows:
     # Enable mbx under $PATH, for zsh:
     echo export PATH="/export/monkeybox:$PATH" >> ~/.zshrc
 
-Fixing permissions for libvirt-qemu:
-
-    sudo getfacl -e /export
-    sudo setfacl -m u:libvirt-qemu:rx /export
-
-## Install KVM on your Laptop
-
-Install KVM using following:
-
-    # apt-get install qemu-kvm libvirt-daemon bridge-utils cpu-checker
-    # kvm-ok
-
-Install Libvirt NSS for name resolution:
-
-    # apt-get install libnss-libvirt
-
-    Next, add the following so that `grep -w 'hosts:' /etc/nsswitch.conf` returns:
-
-    files libvirt libvirt_guest dns mymachines
-
-Install `virt-manager`, the virtual machine manager graphical tool to manage VMs
-on your machine:
-
-    # apt-get install virt-manager
-
-![VM Manager](doc/images/virt-manager.png)
-
-Note: you need to install/setup KVM only once.
-
-Install docker for packaging: https://docs.docker.com/engine/install/ubuntu/
-
-## Setup Network and Templates
+### Setup `mbx` Network
 
 For our local dev-qa environment, we'll create a 172.20.0.0/16 virtual network
 with NAT so VMs on this network are only accessible from the host/laptop but
@@ -237,7 +247,7 @@ locally to do local CloudStack development along side an IDE.
 
 Run this:
 
-    $ sudo apt-get install openjdk-11-jdk maven python-mysql.connector libmysql-java mysql-server mysql-client bzip2 nfs-common uuid-runtime python-setuptools ipmitool genisoimage nfs-kernel-server quota
+    $ sudo apt-get install openjdk-11-jdk maven python-mysql.connector libmysql-java mysql-server mysql-client bzip2 nfs-common uuid-runtime python-setuptools ipmitool genisoimage
 
 Setup IntelliJ (recommended) or any IDE of your choice. Get IntelliJ IDEA
 community edition from:
