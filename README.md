@@ -160,23 +160,23 @@ deploy`.
 For example, the following is needed only one-time for creating a golden master
 storage directory for 4.15 version:
 
-  mkdir -p /export/testing
-  # Create directory layout for a specific ACS version under /export/testing
-  mkdir -p /export/testing/4.15/{primary1,primary2,secondary}
-  # Get the systemvm templates
-  cd /export/testing/4.15
-  wget http://packages.shapeblue.com/systemvmtemplate/4.15/systemvmtemplate-4.15.0-kvm.qcow2.bz2
-  wget http://packages.shapeblue.com/systemvmtemplate/4.15/systemvmtemplate-4.15.0-vmware.ova
-  wget http://packages.shapeblue.com/systemvmtemplate/4.15/systemvmtemplate-4.15.0-xen.vhd.bz2
-  wget http://packages.shapeblue.com/systemvmtemplate/4.15/md5sum.txt
-  # Check the downloaded templates, it should say OK for the three templates
-  md5sum --check md5sum.txt
-  # Seed template in the secondary folder for 4.15
-  /export/monkeybox/files/setup-systemvmtemplate.sh -m /export/testing/4.15/secondary -f systemvmtemplate-4.15.0-kvm.qcow2.bz2 -h kvm
-  /export/monkeybox/files/setup-systemvmtemplate.sh -m /export/testing/4.15/secondary -f systemvmtemplate-4.15.0-vmware.ova -h vmware
-  /export/monkeybox/files/setup-systemvmtemplate.sh -m /export/testing/4.15/secondary -f systemvmtemplate-4.15.0-xen.vhd.bz2 -h xenserver
-  # Cleanup downloaded files
-  rm -fv md5sum.txt systemvmtemplate*
+    mkdir -p /export/testing
+    # Create directory layout for a specific ACS version under /export/testing
+    mkdir -p /export/testing/4.15/{primary1,primary2,secondary}
+    # Get the systemvm templates
+    cd /export/testing/4.15
+    wget http://packages.shapeblue.com/systemvmtemplate/4.15/systemvmtemplate-4.15.0-kvm.qcow2.bz2
+    wget http://packages.shapeblue.com/systemvmtemplate/4.15/systemvmtemplate-4.15.0-vmware.ova
+    wget http://packages.shapeblue.com/systemvmtemplate/4.15/systemvmtemplate-4.15.0-xen.vhd.bz2
+    wget http://packages.shapeblue.com/systemvmtemplate/4.15/md5sum.txt
+    # Check the downloaded templates, it should say OK for the three templates
+    md5sum --check md5sum.txt
+    # Seed template in the secondary folder for 4.15
+    /export/monkeybox/files/setup-systemvmtemplate.sh -m /export/testing/4.15/secondary -f systemvmtemplate-4.15.0-kvm.qcow2.bz2 -h kvm
+    /export/monkeybox/files/setup-systemvmtemplate.sh -m /export/testing/4.15/secondary -f systemvmtemplate-4.15.0-vmware.ova -h vmware
+    /export/monkeybox/files/setup-systemvmtemplate.sh -m /export/testing/4.15/secondary -f systemvmtemplate-4.15.0-xen.vhd.bz2 -h xenserver
+    # Cleanup downloaded files
+    rm -fv md5sum.txt systemvmtemplate*
 
 ## CloudStack Development
 
