@@ -1,38 +1,55 @@
 #!/bin/bash
-
 set -e
 
-ROOT=/export/monkeybox
+ROOT="$( cd "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )"
 mkdir -p $ROOT/boxes
 touch $ROOT/boxes/boxes.list
 export LIBVIRT_DEFAULT_URI="qemu:///system"
-
 echo MonkeyBox 🐵 1.0
 
 usage() {
   echo "Available commands are:"
-  echo "   install: setup monkeynet and mbx templates"
+  echo "   init: initialises monkeynet and mbx templates"
   echo "   build: build packages from git repo and sha/tag/branch"
   echo "   list: list available environments"
   echo "   deploy: deploy monkeybox VMs using mbx templates, setup storage"
   echo "   launch: creates marvin config file and launches a zone"
   echo "   test: start marvin tests"
+  echo "   stop: stop all env VMs"
+  echo "   start: start all env VMs"
   echo "   destroy: destroy environment"
-}
-
-install() {
-  virsh net-define $ROOT/monkeynet.xml
-  virsh net-autostart monkeynet
-  virsh net-start monkeynet
-  echo $pwd
-  echo "Setting up mbx templates, we assumes the templates are already downloaded in templates directory"
-  for xml in $(ls $ROOT/templates/xmls/*xml); do virsh define $xml; done
-  sudo cp $ROOT/files/sudoer.mbx /etc/sudoers.d/mbx
 }
 
 build() {
   echo "Build Packages, please input git repo URL and git/sha/branch"
+  echo "Pulling docker build container images"
+  docker pull bhaisaab/centos8-cloudstack-slave
+  docker pull bhaisaab/centos7-cloudstack-slave
+  docker pull bhaisaab/centos6-cloudstack-slave
+  docker pull bhaisaab/ubuntu-cloudstack-slave
   echo "TODO"
+}
+
+init() {
+  if virsh net-list --all --name | grep -q monkeynet;
+  then
+    echo "'monkeynet' network is already defined, skipped re-initialisation";
+  else
+    virsh net-define $ROOT/monkeynet.xml
+    virsh net-autostart monkeynet
+    virsh net-start monkeynet
+  fi
+  echo "Setting up mbx sudoers file. Please enter sudoer password if you're prompted."
+  sudo cp $ROOT/files/sudoer.mbx /etc/sudoers.d/mbx
+  echo "Updating templates"
+  for template in $(cat $ROOT/templates/md5sum.txt | awk '{print $2}' | sed 's/.qcow2//g'); do
+    virsh undefine mbxt-$template >/dev/null 2>/dev/null || true
+    echo "Updating template: $template"
+    wget --show-progress -nc https://download.cloudstack.org/templates/mbx/$template.qcow2 -O $ROOT/templates/$template.qcow2 || true
+    virsh define $ROOT/templates/xmls/mbxt-$template.xml >/dev/null
+  done
+  echo "Running md5 checksum checks on templates (this may take some time...)"
+  (cd $ROOT/templates && md5sum --check md5sum.txt)
 }
 
 list() {
@@ -48,7 +65,7 @@ list() {
       echo -e "$vm\t$ip\t$url"
       if [[ $vm == *vmw-host1* ]]; then
         vcip=$(sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$vm vim-cmd "vmsvc/get.guest 1 | grep ipAddress | head -1 | sed 's/.*ipAddress = \"//g' | sed 's/\".*//g'" 2> /dev/null) || true
-        echo -e "VC (photon-machine)\t$vcip\thttps://$vcip/"
+        echo -e "VC (photon-machine)\t\t$vcip\thttps://$vcip/"
       fi
     done
     echo
@@ -79,7 +96,7 @@ deploy() {
 
   id=
   for idx in {1..9}; do
-    if ! grep -q qa-$idx- $ROOT/boxes/boxes.list; then
+    if ! grep -q qa$idx- $ROOT/boxes/boxes.list; then
       id=$idx
       break
     fi
@@ -99,7 +116,7 @@ deploy() {
   hypervisor=$(echo $hyt |  awk '{print substr($0,6,3)}')
   repo=${4:-"http://packages.shapeblue.com/cloudstack/upstream/centos7/4.15"}
   storage=${5:-"/export/testing/4.15"}
-  env="qa-$id-$name-$hypervisor"
+  env="qa$id-$name-$hypervisor"
 
   echo -e "Building env with name: \033[4m$env\033[0m"
   echo "Management server template: $mst"
@@ -261,7 +278,7 @@ launch() {
     echo "Please provide a valid env name, run 'mbx list' to find name of environments"
     exit 1
   fi
-  id=$(echo $env | sed 's/qa-//g' | sed 's/-.*//g')
+  id=$(echo $env | sed 's/^qa//g' | sed 's/-.*$//g')
   echo "Generating marvin config for env ID $id"
 
   msip=$(getent hosts $env-mgmt1 | awk '{ print $1 }')
@@ -278,11 +295,36 @@ launch() {
 
 test() {
   set +x
-  echo "Please ssh into the env; cd /marvin; bash -x smoketests.sh:"
+  echo "Please ssh into the env and run: cd /marvin; bash -x smoketests.sh"
   for env in  $(cat $ROOT/boxes/boxes.list); do
     for vm in $(cat $ROOT/boxes/$env/list| grep mgmt1); do
       echo "$env: ssh root@$vm"
     done
+  done
+}
+
+stop() {
+  env=$1
+  if [ -z "$env" ]; then
+    echo "Usage: mbx stop <env name>. Please pass a name, run 'mbx list' for list of available envs."
+    return
+  fi
+  sync
+  for vm in $(cat $ROOT/boxes/$env/list); do
+    sync
+    virsh destroy $vm 2>/dev/null || true
+  done
+}
+
+
+start() {
+  env=$1
+  if [ -z "$env" ]; then
+    echo "Usage: mbx start <env name>. Please pass a name, run 'mbx list' for list of available envs."
+    return
+  fi
+  for vm in $(cat $ROOT/boxes/$env/list); do
+    virsh start $vm 2>/dev/null || true;
   done
 }
 
@@ -299,18 +341,21 @@ destroy() {
   sed -i "/$env/d" $ROOT/boxes/boxes.list
   rm -frv $ROOT/boxes/$env
   echo "Removed environment VMs and config"
-  echo "To remove storage run: sudo rm -frv /export/testing/$env"
+  echo "To remove storage run:"
+  echo "  sudo rm -frv /export/testing/$env"
 }
 
 case "$1" in
     help) usage;;
     -h) usage;;
-    install) install;;
+    init) init;;
     list) list;;
     build) build;;
     deploy) deploy ${@:2};;
     launch) launch $2;;
     test) test;;
+    start) start $2;;
+    stop) stop $2;;
     destroy) destroy $2;;
     *) usage;;
 esac

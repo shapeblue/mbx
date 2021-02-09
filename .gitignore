@@ -1,2 +1,3 @@
 boxes/boxes.list
 boxes/**
+templates/*.qcow2

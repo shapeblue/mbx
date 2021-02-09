@@ -19,7 +19,7 @@ NFS server and KVM are prerequisites to using `mbx`.
 
 ### Install and setup NFS
 
-    apt-get install nfs-kernel-server quota
+    apt-get install nfs-kernel-server quota sshpass wget
     echo "/export  *(rw,async,no_root_squash,no_subtree_check)" > /etc/exports
     mkdir -p /export/testing
     exportfs -a
@@ -54,33 +54,26 @@ on your machine:
 
 ![VM Manager](doc/images/virt-manager.png)
 
-Install docker for packaging: https://docs.docker.com/engine/install/ubuntu/
+Install docker for packaging, follow: https://docs.docker.com/engine/install/ubuntu/
 
 ### Install `mbx`
 
     git clone https://github.com/shapeblue/mbx /export/monkeybox
-    cd /export/monkeybox/templates
-    # Download pre-built mbx templates
-    wget http://download.cloudstack.org/templates/mbx/kvm-centos7.qcow2
-    wget http://download.cloudstack.org/templates/mbx/vmware67u3.qcow2
-    wget http://download.cloudstack.org/templates/mbx/xcpng76.qcow2
-    wget http://download.cloudstack.org/templates/mbx/xenserver71.qcow2
-    wget http://download.cloudstack.org/templates/mbx/md5sum.txt
-    # After downloading run the md5sum check again the md5sum.txt
-    md5sum --check md5sum.txt
-    # Next setup mbx tool:
-    cd /export/monkeybox
-    sudo cp files/sudoer.mbx /etc/sudoers.d/mbx
     # Enable mbx under $PATH, for bash:
     echo export PATH="/export/monkeybox:$PATH" >> ~/.bashrc
     # Enable mbx under $PATH, for zsh:
     echo export PATH="/export/monkeybox:$PATH" >> ~/.zshrc
+    # Initialise `mbx` by opening in another shell:
+    mbx init
+
+The `mbx init` is idempotent and can be used to update templates and domain xml
+definitions.
 
 ### Setup `mbx` Network
 
 For our local dev-qa environment, we'll create a 172.20.0.0/16 virtual network
 with NAT so VMs on this network are only accessible from the host/laptop but
-not by the outside network.
+not by the outside network. The `mbx init` command will initialise this network.
 
     External Network
       .                     +-----------------+
@@ -102,17 +95,6 @@ To keep the setup simple all MonkeyBox VMs have a single nic which can be
 used as a single physical network in CloudStack that has the public, private,
 management/control and storage networks. A complex setup is possible by adding
 multiple virtual networks and nics on them.
-
-To setup the network run:
-
-    $ mbx install
-
-This essentially runs:
-
-    virsh net-define monkeynet.xml
-    virsh net-autostart monkeynet
-    virsh net-start monkeynet
-    # finally loops through templates/xmls and defines the templates
 
 The default network xml definition assumes `virbr1` is not already assigned, in
 case you get an error change the bridge name to something other than `virbr1`.
@@ -163,7 +145,7 @@ run in management VMs and their IPs will be dynamically allocated.
 
 To ssh into deployed VMs (with NSS configured), you can login simply using:
 
-    $ ssh root@<name of VM/domain>
+    $ ssh root@<name of VM/domain or IP>
 
 ### Storage Setup
 
@@ -202,7 +184,7 @@ environments, run smoketests on them and destroy environments. Usage:
     $ mbx
     MonkeyBox 🐵 1.0
     Available commands are:
-      install: setup monkeynet and mbx templates
+      init: initialises monkeynet and mbx templates
       build: build packages from git repo and sha/tag/branch
       list: list available environments
       deploy: deploy monkeybox VMs using mbx templates, setup storage
@@ -316,7 +298,7 @@ Fork the repository at: github.com/apache/cloudstack, or get the code:
 
 Noredist CloudStack builds requires additional jars that may be installed from:
 
-    https://github.com/rhtyd/cloudstack-nonoss
+    https://github.com/shapeblue/cloudstack-nonoss
 
 Clone the above repository and run the install.sh script, you'll need to do
 this only once or whenver the noredist jar dependencies are updated in above
