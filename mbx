@@ -264,6 +264,7 @@ deploy() {
     host2=$(getent hosts $env-host2 | awk '{ print $1 }')
     $ROOT/files/govc cluster.add -k=true -u=https://administrator@vsphere.local:P@ssword123@$vcip/sdk -cluster "/DC/host/Cluster" -noverify -force -hostname $host1 -username root -password P@ssword123
     $ROOT/files/govc cluster.add -k=true -u=https://administrator@vsphere.local:P@ssword123@$vcip/sdk -cluster "/DC/host/Cluster" -noverify -force -hostname $host2 -username root -password P@ssword123
+    echo "Before launching zone, open the VC web UI and reset any warning on the ESXi hosts by clicking 'Reset to Green'"
   fi
 
   if [[ $hypervisor == "xcp" ]]; then
