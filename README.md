@@ -208,12 +208,11 @@ environments, run smoketests on them and destroy environments. Usage:
 
     mbx deploy <name of env, default: mbxe> <mgmt server template, default: mbxt-kvm-centos7> <hypervisor template, default: mbxt-kvm-centos7> <repo, default: http://packages.shapeblue.com/cloudstack/upstream/centos7/4.15> <storage source, default: /export/testing/4.15>
 
-    # For example, to deploy a 4.15 CentOS7/KVM environment with CentOS7 mgmt server:
-    mbx deploy 415-kenv mbxt-kvm-centos7 mbxt-kvm-centos7
-    # For example, to deploy a 4.15 VMware environment with CentOS7 mgmt server:
-    mbx deploy 415-venv mbxt-kvm-centos7 mbxt-vmware67u3
-    # For example, to deploy a 4.15 XS environment with CentOS7 mgmt server:
-    mbx deploy 415-xenv mbxt-kvm-centos7 mbxt-xenserver71
+Example to deploy test matrix (kvm, vmware, xenserver) environments:
+
+    mbx deploy 415-kenv mbxt-kvm-centos7 mbxt-kvm-centos7 # deploys 4.15 + KVM CentOS7 env
+    mbx deploy 415-venv mbxt-kvm-centos7 mbxt-vmware67u3  # deploys 4.15 + VMware67u3 env
+    mbx deploy 415-xenv mbxt-kvm-centos7 mbxt-xenserver71 # deploys 4.15 + XenServer71 env
 
 3. To deploy a zone, run:
 
@@ -230,6 +229,9 @@ environments, run smoketests on them and destroy environments. Usage:
     mbx destroy <name of the env, see mbx list for env name>
 
 ## CloudStack Development
+
+This section cover how a developer can run management server and MySQL server
+locally to do local CloudStack development along side an IDE.
 
 ### Install Development Tools
 
@@ -371,7 +373,7 @@ address:port and put breakpoints (and watches) as applicable.
 
 ## Contributing
 
-Send a pull request on https://github.com/rhtyd/mbx
+Send a pull request on https://github.com/shapeblue/mbx
 
 ## Troubleshooting
 
