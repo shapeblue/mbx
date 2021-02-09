@@ -13,16 +13,22 @@ Notes:
   please uninstall it before proceeding further.
 - Default password for the root user is `P@ssword123`.
 
-Pre-built mbx templates can be downloaded from following mirrors:
+Setup NFS on /export (see setting up NFS), install mbx templates (mbxt) as
+follows:
 
-    http://573.yadav.xyz:8888/monkeybox/templates/
-
-We require that you install nfs and run it from /export:
-
-    # See Setting up NFS and then execute following:
-    cd /export
-    git clone https://github.com/rhtyd/mbx.git monkeybox
-    cd monkeybox
+    mkdir -p /export
+    git clone https://github.com/shapeblue/mbx /export/monkeybox
+    cd /export/monkeybox/templates
+    # Download pre-built mbx templates
+    wget http://download.cloudstack.org/templates/mbx/kvm-centos7.qcow2
+    wget http://download.cloudstack.org/templates/mbx/vmware67u3.qcow2
+    wget http://download.cloudstack.org/templates/mbx/xcpng76.qcow2
+    wget http://download.cloudstack.org/templates/mbx/xenserver71.qcow2
+    wget http://download.cloudstack.org/templates/mbx/md5sum.txt
+    # After downloading run the md5sum check again the md5sum.txt
+    md5sum --check md5sum.txt
+    # Next setup mbx tool:
+    cd /export/monkeybox
     sudo cp files/sudoer.mbx /etc/sudoers.d/mbx
     # Enable mbx under $PATH, for bash:
     echo export PATH="/export/monkeybox:$PATH" >> ~/.bashrc
@@ -177,6 +183,51 @@ storage directory for 4.15 version:
     /export/monkeybox/files/setup-systemvmtemplate.sh -m /export/testing/4.15/secondary -f systemvmtemplate-4.15.0-xen.vhd.bz2 -h xenserver
     # Cleanup downloaded files
     rm -fv md5sum.txt systemvmtemplate*
+
+## Using `mbx`
+
+The `mbx` tool can be used to build packages, deploy KVM/XS/XCP/VMware dev/QA
+environments, run smoketests on them and destroy environments. Usage:
+
+    $ mbx
+    MonkeyBox 🐵 1.0
+    Available commands are:
+      install: setup monkeynet and mbx templates
+      build: build packages from git repo and sha/tag/branch
+      list: list available environments
+      deploy: deploy monkeybox VMs using mbx templates, setup storage
+      launch: creates marvin config file and launches a zone
+      test: start marvin tests
+      destroy: destroy environment
+
+1. To list available environments and templates (mbxts) run:
+
+    mbx list
+
+2. To deploy an environment run:
+
+    mbx deploy <name of env, default: mbxe> <mgmt server template, default: mbxt-kvm-centos7> <hypervisor template, default: mbxt-kvm-centos7> <repo, default: http://packages.shapeblue.com/cloudstack/upstream/centos7/4.15> <storage source, default: /export/testing/4.15>
+
+    # For example, to deploy a 4.15 CentOS7/KVM environment with CentOS7 mgmt server:
+    mbx deploy 415-kenv mbxt-kvm-centos7 mbxt-kvm-centos7
+    # For example, to deploy a 4.15 VMware environment with CentOS7 mgmt server:
+    mbx deploy 415-venv mbxt-kvm-centos7 mbxt-vmware67u3
+    # For example, to deploy a 4.15 XS environment with CentOS7 mgmt server:
+    mbx deploy 415-xenv mbxt-kvm-centos7 mbxt-xenserver71
+
+3. To deploy a zone, run:
+
+    mbx launch <name of the env, see mbx list for env name>
+
+4. To run smoketests, run:
+
+    mbx list # find your environment
+    ssh root@<mgmt server name or IP>
+    cd /marvin # here you'll find smoketests.sh to run smoketests
+
+5. To destroy your mbx environment, run:
+
+    mbx destroy <name of the env, see mbx list for env name>
 
 ## CloudStack Development
 
