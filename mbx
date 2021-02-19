@@ -15,6 +15,7 @@ usage() {
   echo "   deploy: deploy monkeybox VMs using mbx templates, setup storage"
   echo "   launch: creates marvin config file and launches a zone"
   echo "   test: start marvin tests"
+  echo "   ssh: ssh into a host with default password"
   echo "   stop: stop all env VMs"
   echo "   start: start all env VMs"
   echo "   destroy: destroy environment"
@@ -137,7 +138,7 @@ deploy() {
   # Clone hypervisor host1
   virt-clone --original $hyt --name $env-host1 --file $ROOT/boxes/$env/$env-host1.qcow2
   echo $env-host1 >> $ROOT/boxes/$env/list
-  virsh setmaxmem $env-host1 6G --config
+  virsh setmaxmem $env-host1 4G --config
   if [[ "$hypervisor" == "vmw" ]]; then
     # VC runs on 1st ESXi host
     virsh setmaxmem $env-host1 16G --config
@@ -146,7 +147,7 @@ deploy() {
   # Clone hypervisor host2
   virt-clone --original $hyt --name $env-host2 --file $ROOT/boxes/$env/$env-host2.qcow2
   echo $env-host2 >> $ROOT/boxes/$env/list
-  virsh setmaxmem $env-host2 6G --config
+  virsh setmaxmem $env-host2 4G --config
 
   echo "Starting VMs"
   for domain in $(cat $ROOT/boxes/$env/list); do virsh start $domain; done;
@@ -197,6 +198,7 @@ deploy() {
     # XenServer: Make hosts unique
     if [[ "$hypervisor" == "xen" || "$hypervisor" == "xcp" ]]; then
       if [[ "$box" == "$env-host1" ]]; then
+        sleep 30 # wait for xapi to come up
         sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$box "xe host-param-set uuid=\$(xe host-list params=uuid|awk {'print \$5'} | head -n 1) name-label=$env-host1"
       fi
       if [[ "$box" == "$env-host2" ]]; then
@@ -291,6 +293,8 @@ launch() {
   sshpass -p 'P@ssword123' scp -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" $ROOT/files/smoketests.sh root@$msip:/marvin/
   sshpass -p 'P@ssword123' scp -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" $ROOT/files/result.py root@$msip:/marvin/
   while ! nc -vzw 5 $msip 8096 2>&1 > /dev/null; do echo "Waiting for management server to come up"; sleep 10; done
+  sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$msip systemctl start cloudstack-usage
+  sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$msip "mysql -u root --execute=\"UPDATE cloud.service_offering set ram_size=512 where vm_type='consoleproxy';\""
   echo "Management server is UP now, launching data center now"
 
   # Deploy marvin datacenter
@@ -308,6 +312,11 @@ test() {
   done
 }
 
+sshp() {
+  echo "Trying ssh with root@$1 with password 'P@ssword123'"
+  sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$1
+}
+
 stop() {
   env=$1
   if [ -z "$env" ]; then
@@ -320,7 +329,6 @@ stop() {
     virsh destroy $vm 2>/dev/null || true
   done
 }
-
 
 start() {
   env=$1
@@ -357,6 +365,7 @@ case "$1" in
     deploy) deploy ${@:2};;
     launch) launch $2;;
     test) test;;
+    ssh) sshp $2;;
     start) start $2;;
     stop) stop $2;;
     destroy) destroy $2;;
