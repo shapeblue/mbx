@@ -184,8 +184,10 @@ deploy() {
     if [[ "$hypervisor" == "vmw" && "$box" == "$env-host1" ]]; then
       sleep 30
       vcmac=$( (date; cat /proc/interrupts) | md5sum | sed -r 's/^(.{4}).*$/\1/;s/([0-9a-f]{2})/\1:/g;s/^/00:50:56:00:/;s/:$//' )
-      sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$box "echo 'ethernet0.addressType = \"static\"' >> /vmfs/volumes/datastore1/VC/VC.vmx"
-      sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$box "echo 'ethernet0.address = \"${vcmac}\"' >> /vmfs/volumes/datastore1/VC/VC.vmx"
+      if [[ "$hyt" == "mbxt-vmware70u1" ]]; then
+        sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$box "echo 'ethernet0.addressType = \"static\"' >> /vmfs/volumes/datastore1/VC/VC.vmx"
+        sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$box "echo 'ethernet0.address = \"${vcmac}\"' >> /vmfs/volumes/datastore1/VC/VC.vmx"
+      fi
       sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$box vim-cmd vmsvc/getallvms
       sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$box vim-cmd vmsvc/power.on 1
       echo "VC started"
