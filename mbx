@@ -183,12 +183,15 @@ deploy() {
     # VMware: Start VC
     if [[ "$hypervisor" == "vmw" && "$box" == "$env-host1" ]]; then
       sleep 30
+      vcmac=$( (date; cat /proc/interrupts) | md5sum | sed -r 's/^(.{4}).*$/\1/;s/([0-9a-f]{2})/\1:/g;s/^/00:50:56:00:/;s/:$//' )
+      sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$box "echo 'ethernet0.addressType = \"static\"' >> /vmfs/volumes/datastore1/VC/VC.vmx"
+      sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$box "echo 'ethernet0.address = \"${vcmac}\"' >> /vmfs/volumes/datastore1/VC/VC.vmx"
       sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$box vim-cmd vmsvc/getallvms
       sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$box vim-cmd vmsvc/power.on 1
       echo "VC started"
     fi
     if [[ "$hypervisor" == "vmw" && "$box" == "$env-host2" ]]; then
-      sleep 30
+      sleep 10
       sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$box vim-cmd vmsvc/unregister 1
       sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$box vim-cmd vmsvc/getallvms
       sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$box vim-cmd hostsvc/datastore/remove datastore1
@@ -244,6 +247,10 @@ deploy() {
   export host2=$(getent hosts $env-host2 | awk '{ print $1 }')
   export storage_path="/export/testing/$env"
 
+  if [[ $hypervisor == "xcp" ]]; then
+    hypervisor="xen"
+  fi
+
   # Find VC IP
   export vcip=
   if [[ $hypervisor == "vmw" ]]; then
@@ -262,15 +269,9 @@ deploy() {
       sleep 5
     done
     # Check vim service and add hosts cluster
-    host1=$(getent hosts $env-host1 | awk '{ print $1 }')
-    host2=$(getent hosts $env-host2 | awk '{ print $1 }')
     $ROOT/files/govc cluster.add -k=true -u=https://administrator@vsphere.local:P@ssword123@$vcip/sdk -cluster "/DC/host/Cluster" -noverify -force -hostname $host1 -username root -password P@ssword123
     $ROOT/files/govc cluster.add -k=true -u=https://administrator@vsphere.local:P@ssword123@$vcip/sdk -cluster "/DC/host/Cluster" -noverify -force -hostname $host2 -username root -password P@ssword123
     echo "Before launching zone, open the VC web UI and reset any warning on the ESXi hosts by clicking 'Reset to Green'"
-  fi
-
-  if [[ $hypervisor == "xcp" ]]; then
-    hypervisor="xen"
   fi
 
   envsubst < $ROOT/marvin/$hypervisor.cfg > $ROOT/boxes/$env/marvin.cfg
