@@ -138,16 +138,18 @@ deploy() {
   # Clone hypervisor host1
   virt-clone --original $hyt --name $env-host1 --file $ROOT/boxes/$env/$env-host1.qcow2
   echo $env-host1 >> $ROOT/boxes/$env/list
-  virsh setmaxmem $env-host1 6G --config
+  virsh setmaxmem $env-host1 8G --config
   if [[ "$hypervisor" == "vmw" ]]; then
     # VC runs on 1st ESXi host
-    virsh setmaxmem $env-host1 16G --config
+    virsh setmaxmem $env-host1 18G --config
   fi
 
   # Clone hypervisor host2
-  virt-clone --original $hyt --name $env-host2 --file $ROOT/boxes/$env/$env-host2.qcow2
-  echo $env-host2 >> $ROOT/boxes/$env/list
-  virsh setmaxmem $env-host2 6G --config
+  if [[ "$hyt" != "mbxt-vmware70u1" ]]; then
+    virt-clone --original $hyt --name $env-host2 --file $ROOT/boxes/$env/$env-host2.qcow2
+    echo $env-host2 >> $ROOT/boxes/$env/list
+    virsh setmaxmem $env-host2 8G --config
+  fi
 
   echo "Starting VMs"
   for domain in $(cat $ROOT/boxes/$env/list); do virsh start $domain; done;
@@ -272,7 +274,9 @@ deploy() {
     done
     # Check vim service and add hosts cluster
     $ROOT/files/govc cluster.add -k=true -u=https://administrator@vsphere.local:P@ssword123@$vcip/sdk -cluster "/DC/host/Cluster" -noverify -force -hostname $host1 -username root -password P@ssword123
-    $ROOT/files/govc cluster.add -k=true -u=https://administrator@vsphere.local:P@ssword123@$vcip/sdk -cluster "/DC/host/Cluster" -noverify -force -hostname $host2 -username root -password P@ssword123
+    if [[ "$hyt" != "mbxt-vmware70u1" ]]; then
+      $ROOT/files/govc cluster.add -k=true -u=https://administrator@vsphere.local:P@ssword123@$vcip/sdk -cluster "/DC/host/Cluster" -noverify -force -hostname $host2 -username root -password P@ssword123
+    fi
     echo "Before launching zone, open the VC web UI and reset any warning on the ESXi hosts by clicking 'Reset to Green'"
   fi
 
