@@ -163,16 +163,16 @@ storage directory for 4.15 version:
     mkdir -p /export/testing/4.15/{primary1,primary2,secondary}
     # Get the systemvm templates
     cd /export/testing/4.15
-    wget http://packages.shapeblue.com/systemvmtemplate/4.15/systemvmtemplate-4.15.0-kvm.qcow2.bz2
-    wget http://packages.shapeblue.com/systemvmtemplate/4.15/systemvmtemplate-4.15.0-vmware.ova
-    wget http://packages.shapeblue.com/systemvmtemplate/4.15/systemvmtemplate-4.15.0-xen.vhd.bz2
+    wget http://packages.shapeblue.com/systemvmtemplate/4.15/systemvmtemplate-4.15.1-kvm.qcow2.bz2
+    wget http://packages.shapeblue.com/systemvmtemplate/4.15/systemvmtemplate-4.15.1-vmware.ova
+    wget http://packages.shapeblue.com/systemvmtemplate/4.15/systemvmtemplate-4.15.1-xen.vhd.bz2
     wget http://packages.shapeblue.com/systemvmtemplate/4.15/md5sum.txt
     # Check the downloaded templates, it should say OK for the three templates
     md5sum --check md5sum.txt
     # Seed template in the secondary folder for 4.15
-    /export/monkeybox/files/setup-systemvmtemplate.sh -m /export/testing/4.15/secondary -f systemvmtemplate-4.15.0-kvm.qcow2.bz2 -h kvm
-    /export/monkeybox/files/setup-systemvmtemplate.sh -m /export/testing/4.15/secondary -f systemvmtemplate-4.15.0-vmware.ova -h vmware
-    /export/monkeybox/files/setup-systemvmtemplate.sh -m /export/testing/4.15/secondary -f systemvmtemplate-4.15.0-xen.vhd.bz2 -h xenserver
+    /export/monkeybox/files/setup-systemvmtemplate.sh -m /export/testing/4.15/secondary -f systemvmtemplate-4.15.1-kvm.qcow2.bz2 -h kvm
+    /export/monkeybox/files/setup-systemvmtemplate.sh -m /export/testing/4.15/secondary -f systemvmtemplate-4.15.1-vmware.ova -h vmware
+    /export/monkeybox/files/setup-systemvmtemplate.sh -m /export/testing/4.15/secondary -f systemvmtemplate-4.15.1-xen.vhd.bz2 -h xenserver
     # Cleanup downloaded files
     rm -fv md5sum.txt systemvmtemplate*
 
@@ -279,9 +279,9 @@ run after deploying CloudStack db: (please use CloudStack branch/version specifi
 systemvmtemplate)
 
     cd /path/to/cloudstack/git/repo
-    wget http://packages.shapeblue.com/systemvmtemplate/4.15/systemvmtemplate-4.15.0-kvm.qcow2.bz2
+    wget http://packages.shapeblue.com/systemvmtemplate/4.15/systemvmtemplate-4.15.1-kvm.qcow2.bz2
     ./scripts/storage/secondary/cloud-install-sys-tmplt \
-          -m /export/testing/secondary -f systemvmtemplate-4.15.0-kvm.qcow2.bz2 \
+          -m /export/testing/secondary -f systemvmtemplate-4.15.1-kvm.qcow2.bz2 \
           -h kvm -o localhost -r cloud -d cloud
 
 ### Dev: Build and Test CloudStack
