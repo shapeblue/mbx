@@ -215,10 +215,10 @@ deploy() {
     fi
   done
 
-  # FIXME: configure provided rpm/deb repo on hosts
-
   # Setup Management Server
   msip=$(getent hosts $env-mgmt1 | awk '{ print $1 }')
+  # Fix CentOS7 repo
+  sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$msip "sed -i '/^baseurl=.*/d' /etc/yum.repos.d/cloudstack.repo && echo baseurl=$repo >> /etc/yum.repos.d/cloudstack.repo"
   sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$msip systemctl enable --now mariadb
   sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$msip yum install -y cloudstack-management cloudstack-usage cloudstack-common cloudstack-integration-tests cloudstack-marvin
   sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$msip "cloudstack-setup-databases cloud:cloud@localhost --deploy-as=root: -i $msip"
@@ -227,8 +227,12 @@ deploy() {
 
   # Setup KVM hosts
   if [[ $hypervisor == "kvm" ]]; then
+    # Fix CentOS7 repo
+    sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$env-host1 "sed -i '/^baseurl=.*/d' /etc/yum.repos.d/cloudstack.repo && echo baseurl=$repo >> /etc/yum.repos.d/cloudstack.repo"
     sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$env-host1 yum install -y cloudstack-agent
     sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$env-host1 "echo host.reserved.mem.mb=512 >> /etc/cloudstack/agent/agent.properties"
+    # Fix CentOS7 repo
+    sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$env-host2 "sed -i '/^baseurl=.*/d' /etc/yum.repos.d/cloudstack.repo && echo baseurl=$repo >> /etc/yum.repos.d/cloudstack.repo"
     sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$env-host2 yum install -y cloudstack-agent
     sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$env-host2 "echo host.reserved.mem.mb=512 >> /etc/cloudstack/agent/agent.properties"
   fi
