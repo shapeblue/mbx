@@ -22,13 +22,65 @@ usage() {
 }
 
 build() {
-  echo "Build Packages, please input git repo URL and git/sha/branch"
-  echo "Pulling docker build container images"
-  docker pull bhaisaab/centos8-cloudstack-slave
-  docker pull bhaisaab/centos7-cloudstack-slave
-  docker pull bhaisaab/centos6-cloudstack-slave
-  docker pull bhaisaab/ubuntu-cloudstack-slave
-  echo "TODO"
+  if [[ "$1" == "-h" ]]; then
+    echo "Usage: mbx build <repo url> <tag|sha|branch name|pr number> <option distro: centos6/7/8/debian>"
+    exit 0
+  fi
+
+  url="${1:-apache/cloudstack}"
+  echo $url | egrep "^https?://" || url="https://github.com/$url"
+  tag="${2:-master}"
+  distro="${3:-centos7}"
+
+  re='^[0-9]+$'
+  [[ $tag =~ $re ]] && pr_id=$tag && output_dir="${output_dir:=/export/testing/builds/pr/$tag/$distro}"
+  output_dir="${output_dir:=/export/testing/builds/$tag/$distro}"
+
+  ROOT=`pwd`
+  uuid=`uuid`
+  packaging_dir="/tmp/mbx/cloudstack/$uuid"
+
+  echo "Pulling $url:$tag to $packaging_dir"
+  mkdir -p $packaging_dir
+  cd $packaging_dir
+
+  git init $(pwd)
+  git fetch --tags --progress $url --depth 1 +refs/heads/*:refs/remotes/origin/* > /dev/null
+  git config remote.origin.url $url
+  git config --add remote.origin.fetch +refs/heads/*:refs/remotes/origin/*
+
+  cd $ROOT
+
+  # TODO: Build all simultaniously
+  case "$distro" in
+    centos6) image_name="bhaisaab/centos6-cloudstack-slave";;
+    centos7) image_name="bhaisaab/centos7-cloudstack-slave";;
+    centos8) image_name="bhaisaab/centos8-cloudstack-slave";;
+    debian) image_name="bhaisaab/ubuntu-cloudstack-slave";;
+    *) echo "Unknown distro" && exit 1;;
+  esac
+
+  echo "Pulling docker build container image $image_name"
+  docker pull $image_name
+
+  echo "Building packages for $distro"
+  uuid=`uuid`
+  container_name="builder-$uuid"
+
+  sudo rm -rf $output_dir
+
+  docker run -d -v $packaging_dir:/jenkins -v $output_dir:/output  --name $container_name $image_name /usr/sbin/sshd -D -p 22
+  builder_ip=`docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' $container_name `
+
+  sshpass -p 'P@ssword123' scp -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" files/build.sh root@$builder_ip://jenkins/build.sh
+  sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$builder_ip \
+    PR_ID=$pr_id ACS_BRANCH=$tag DISTRO=$distro bash -x /jenkins/build.sh
+
+  echo "Packages can be found at $output_dir"
+
+  docker kill $container_name
+  docker rm $container_name
+  sudo rm -rf $packaging_dir
 }
 
 init() {
@@ -372,7 +424,7 @@ case "$1" in
     -h) usage;;
     init) init;;
     list) list;;
-    build) build;;
+    build) build ${@:2};;
     deploy) deploy ${@:2};;
     launch) launch $2;;
     test) test;;

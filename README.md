@@ -185,7 +185,7 @@ environments, run smoketests on them and destroy environments. Usage:
     MonkeyBox 🐵 1.0
     Available commands are:
       init: initialises monkeynet and mbx templates
-      build: build packages from git repo and sha/tag/branch
+      build: build packages from git repo and sha/tag/branch/PR for versions 4.9+
       list: list available environments
       deploy: deploy monkeybox VMs using mbx templates, setup storage
       launch: creates marvin config file and launches a zone
@@ -394,33 +394,33 @@ And a telnet from host to management server on port gives this result:
     $ telnet 172.20.0.1 8250
     Trying 172.20.0.1...
     telnet: connect to address 172.20.0.1: No route to host
-    
+
 Clearing your iptables and setting new rules should take care of the issue. (Tested on Ubuntu 17.10)
 
 Run the following commands as su or with sudo powers.
 
 First, flush your rules and delete any user-defined chains:
-    
+
     $ iptables -t nat -F && iptables -t nat -X
     $ iptables -t filter -F && iptables -t filter -X
-    
-Add new rules by running the two scripts located in docs/scripts to set up new nat and filter rules, 
+
+Add new rules by running the two scripts located in docs/scripts to set up new nat and filter rules,
 ensuring that the network name (virbr1) in filter.table matches your management server IP:
 
     $ bash -x <script>
-    
+
 Alternatively, add each rule separately.
- 
+
 Finally, save your iptables.
- 
+
 Ubuntu:
- 
+
     iptables-save
-    
+
 and if using iptables-persistent:
 
     service iptables-persistent save
-    
+
 CentOS 6 and older (CentOS 7 uses FirewallD by default):
 
     service iptables save
