@@ -272,7 +272,6 @@ deploy() {
   # Fix CentOS7 repo
   sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$msip "sed -i '/^baseurl=.*/d' /etc/yum.repos.d/cloudstack.repo && echo baseurl=$repo >> /etc/yum.repos.d/cloudstack.repo"
   sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$msip systemctl enable --now mariadb
-  sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$msip yum install -y python3-pip
   sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$msip pip3 install --upgrade pip
   sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$msip yum install -y cloudstack-management cloudstack-usage cloudstack-common cloudstack-integration-tests cloudstack-marvin
   sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$msip "cloudstack-setup-databases cloud:cloud@localhost --deploy-as=root: -i $msip"
