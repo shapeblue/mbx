@@ -38,9 +38,9 @@ def _generate_file_list(args):
     return file_path_list
 
 def parse_reports(file_path_list):
-    print "Only failed tests shown:"
-    print "Test | Result | Time (s) | Test File"
-    print "--- | --- | --- | ---"
+    print("Only failed tests shown:")
+    print("Test | Result | Time (s) | Test File")
+    print("--- | --- | --- | ---")
 
     exit_code = 0
 
@@ -69,8 +69,8 @@ def parse_reports(file_path_list):
                 tests.append([name, status, time, filename])
 
     for test in tests:
-        print "%s | %s | %.2f | %s" % (test[0], test[1], float(test[2]), test[3])
-    print ""
+        print(f"{test[0]} | {test[1]} | {float(test[2]):.2f} | {test[3]}")
+    print("")
     return exit_code
 
 if __name__ == "__main__":
