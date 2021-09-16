@@ -5,17 +5,19 @@ ROOT="$( cd "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )"
 mkdir -p $ROOT/boxes
 touch $ROOT/boxes/boxes.list
 export LIBVIRT_DEFAULT_URI="qemu:///system"
-echo MonkeyBox 🐵 1.0
+echo MonkeyBox 🐵 v0.01
 
 usage() {
   echo "Available commands are:"
   echo "   init: initialises monkeynet and mbx templates"
-  echo "   build: build packages from git repo and sha/tag/branch"
-  echo "   list: list available environments"
-  echo "   deploy: deploy monkeybox VMs using mbx templates, setup storage"
-  echo "   launch: creates marvin config file and launches a zone"
+  echo "   build: builds packages from git repo and sha/tag/branch"
+  echo "   list: lists available environments"
+  echo "   deploy: deploys QA env with two monkeybox VMs, configures storage, creates marvin cfg file"
+  echo "   launch: launches QA env zone using environment's marvin cfg file"
   echo "   test: start marvin tests"
-  echo "   ssh: ssh into a host with default password"
+  echo "   dev: deploys dev env with a single monkeybox VM, configures storage, creates marvin cfg file"
+  echo "   agentscp: updates KVM agent in dev environment using scp and restarts it"
+  echo "   ssh: ssh into a mbx VM"
   echo "   stop: stop all env VMs"
   echo "   start: start all env VMs"
   echo "   destroy: destroy environment"
@@ -139,7 +141,6 @@ check_mbxt() {
 }
 
 deploy() {
-  # Usage: <name> <mgmt server template> <hypervisor template> <repo> <storage source>
   if [[ "$1" == "-h" ]]; then
     echo "Usage: mbx deploy <name of env> <mgmt server template> <hypervisor template> <repo> <storage source>"
     exit 0
@@ -376,6 +377,200 @@ test() {
   done
 }
 
+dev() {
+  if [[ "$1" == "-h" ]]; then
+    echo "Usage: mbx dev <name of env> <hypervisor template> <storage source>"
+    exit 0
+  fi
+
+  set -x
+  id=
+  for idx in {1..9}; do
+    if ! grep -q qa$idx- $ROOT/boxes/boxes.list; then
+      id=$idx
+      break
+    fi
+  done
+  if [ -z $id ]; then
+    echo "Unable to deploy an env, all 20 slots full"
+    exit 1
+  fi
+
+  name=${1:-"mbx-dev"}
+  hyt=${2:-"mbxt-kvm-centos7"}
+  # Validate input templates
+  check_mbxt hypervisor $hyt
+
+  hypervisor=$(echo $hyt |  awk '{print substr($0,6,3)}')
+  storage=${3:-"/export/testing/4.15"}
+  env="dev$id-$name-$hypervisor"
+
+  echo -e "Building dev env with name: \033[4m$env\033[0m"
+  echo "Hypervisor template: $hyt"
+  echo "Storage source: $storage"
+
+  mkdir -p $ROOT/boxes/$env
+  # Save env name
+  echo $env >> $ROOT/boxes/boxes.list
+
+  # Clone hypervisor
+  virt-clone --original $hyt --name $env-host1 --file $ROOT/boxes/$env/$env-host1.qcow2
+  echo $env-host1 >> $ROOT/boxes/$env/list
+  virsh setmaxmem $env-host1 8G --config
+  if [[ "$hypervisor" == "vmw" ]]; then
+    virsh setmaxmem $env-host1 18G --config
+  fi
+
+  echo "Starting VMs"
+  for domain in $(cat $ROOT/boxes/$env/list); do virsh start $domain; done;
+
+  echo "Copying primary and secondary storages"
+  env_storage="/export/testing/$env/"
+  sudo cp -vr $storage $env_storage
+  sync
+  echo "Primary and secondary storages are ready"
+
+  echo "Initialising dev hosts"
+  sleep 60
+  for box in $(cat $ROOT/boxes/$env/list); do
+    echo "Configuring host $box"
+    ip=$(getent hosts $box | awk '{ print $1 }')
+    while [ -z $ip ]; do
+      echo "Waiting for $box DHCP to kick-in..."
+      sleep 10
+      ip=$(getent hosts $box | awk '{ print $1 }')
+    done
+    while ! nc -vzw 10 $ip 22 2>&1 > /dev/null; do echo "Waiting for ssh on $box ($ip) to come up"; sleep 10; done
+    echo "$box is UP"
+    sleep 5
+    # KVM or XenServer/XCP-ng host
+    if [[ "$hypervisor" == "kvm" || "$hypervisor" == "xen" || "$hypervisor" == "xcp" ]]; then
+      sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$box hostnamectl set-hostname $box
+      sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$box "echo $ip $box >> /etc/hosts"
+      sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$box "cat /etc/hosts"
+      echo "$box hostname fixed"
+    fi
+    # VMware: Start VC
+    if [[ "$hypervisor" == "vmw" && "$box" == "$env-host1" ]]; then
+      vcmac=$( (date; cat /proc/interrupts) | md5sum | sed -r 's/^(.{4}).*$/\1/;s/([0-9a-f]{2})/\1:/g;s/^/00:50:56:00:/;s/:$//' )
+      if [[ "$hyt" == "mbxt-vmware70u1" ]]; then
+        sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$box "echo 'ethernet0.addressType = \"static\"' >> /vmfs/volumes/datastore1/VC/VC.vmx"
+        sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$box "echo 'ethernet0.address = \"${vcmac}\"' >> /vmfs/volumes/datastore1/VC/VC.vmx"
+      fi
+      sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$box vim-cmd vmsvc/getallvms
+      sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$box vim-cmd vmsvc/power.on 1
+      echo "VC started"
+    fi
+    # XenServer: Make hosts unique
+    if [[ "$hypervisor" == "xen" || "$hypervisor" == "xcp" ]]; then
+      if [[ "$box" == "$env-host1" ]]; then
+        sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$box "xe host-param-set uuid=\$(xe host-list params=uuid|awk {'print \$5'} | head -n 1) name-label=$env-host1"
+      fi
+    fi
+  done
+  # Setup KVM hosts
+  if [[ $hypervisor == "kvm" ]]; then
+    sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$env-host1 "echo host.reserved.mem.mb=512 >> /etc/cloudstack/agent/agent.properties"
+    sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$env-host1 "yum install -y openssh-clients java-11-openjdk libvirt bridge-utils ebtables iptables ethtool net-tools iproute ipset perl python36-libvirt qemu-img qemu-kvm python python3 python3-pip"
+  fi
+  # Setup xen/xcp hosts
+  if [[ $hypervisor == "xen" || $hypervisor == "xcp" ]]; then
+    masterip=$(getent hosts $env-host1 | awk '{ print $1 }')
+    sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$env-host1 "xe pool-param-set name-label=${env}1 uuid=\$(xe pool-list --minimal)"
+  fi
+
+  # Generate marvin config
+  msip="172.20.0.1"
+  export vlan="$(echo $id*100|bc)-$(echo $id*100+99|bc)"
+  export public_start="172.20.$id.1"
+  export public_end="172.20.$id.125"
+  export pod_start="172.20.$id.126"
+  export pod_end="172.20.$id.250"
+  export host1=$(getent hosts $env-host1 | awk '{ print $1 }')
+  export storage_path="/export/testing/$env"
+
+  if [[ $hypervisor == "xcp" ]]; then
+    hypervisor="xen"
+  fi
+
+  # Find VC IP
+  export vcip=
+  if [[ $hypervisor == "vmw" ]]; then
+    while : ; do
+      vcip=$(sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$env-host1 vim-cmd "vmsvc/get.guest 1 | grep ipAddress | head -1 | sed 's/.*ipAddress = \"//g' | sed 's/\".*//g'")
+      if [[ "$vcip" == *"unset"* ]]; then
+        echo "Waiting for VC to be UP"
+        sleep 5
+      else
+        echo "VC IP found: $vcip"
+        break
+      fi
+    done
+    while [[ "$(curl -sL -w '%{http_code}' https://${vcip}/sdk/vimService.wsdl --insecure -o /dev/null)" != "200" ]]; do
+      echo "Waiting for VC vim service to be UP"
+      sleep 5
+    done
+    # Check vim service and add hosts cluster
+    $ROOT/files/govc cluster.add -k=true -u=https://administrator@vsphere.local:P@ssword123@$vcip/sdk -cluster "/DC/host/Cluster" -noverify -force -hostname $host1 -username root -password P@ssword123
+    echo "Before launching zone, open the VC web UI and reset any warning on the ESXi hosts by clicking 'Reset to Green'"
+  fi
+
+  envsubst < $ROOT/marvin/$hypervisor.cfg > $ROOT/boxes/$env/marvin.cfg
+  echo "Check and fix the marvin cfg file here: $ROOT/boxes/$env/marvin.cfg"
+  echo "Deploy management server database, start jetty using mvn and then deploy zone using: 'python tools/marvin/marvin/deployDataCenter.py -i $ROOT/boxes/$env/marvin.cfg '"
+}
+
+agentscp() {
+  if [[ "$1" == "-h" ]]; then
+    echo "Usage: mbx agentscp <KVM host IP>"
+    exit 0
+  fi
+
+  set -x
+  kvm_host=$1
+  ROOT=$PWD
+  echo "[acs agent] Syncing KVM agent changes from development folder to host: $kvm_host"
+  sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$kvm_host "mkdir -p /etc/cloudstack/agent/ /usr/share/cloudstack-common/{lib,scripts,vms} /usr/share/cloudstack-agent/{lib,plugins} /var/log/cloudstack/agent/"
+
+  echo "[acs agent] Copied systemvm.iso"
+  sshpass -p 'P@ssword123' scp -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" $ROOT/systemvm/dist/systemvm.iso root@$kvm_host:/usr/share/cloudstack-common/vms/
+
+  echo "[acs agent] Syncing python lib changes to host: $kvm_host"
+  sshpass -p 'P@ssword123' scp -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" -r $ROOT/python/lib/* root@$kvm_host:/usr/lib64/python2.7/site-packages/ 2>/dev/null || true
+  sshpass -p 'P@ssword123' scp -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" -r $ROOT/python/lib/* root@$kvm_host:/usr/lib64/python3.6/site-packages/ 2>/dev/null || true
+
+  echo "[acs agent] Syncing scripts"
+  sshpass -p 'P@ssword123' scp -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" -r $ROOT/scripts/* root@$kvm_host:/usr/share/cloudstack-common/scripts/
+
+  echo "[acs agent] Syncing kvm hypervisor jars"
+  sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$kvm_host "rm -f /usr/share/cloudstack-agent/lib/*"
+  sshpass -p 'P@ssword123' scp -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" -r $ROOT/plugins/hypervisors/kvm/target/*jar root@$kvm_host:/usr/share/cloudstack-agent/lib/
+  sshpass -p 'P@ssword123' scp -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" -r $ROOT/plugins/hypervisors/kvm/target/dependencies/*jar root@$kvm_host:/usr/share/cloudstack-agent/lib/
+
+  echo "[acs agent] Syncing cloudstack-agent config and scripts"
+  sshpass -p 'P@ssword123' scp -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" $ROOT/agent/target/transformed/environment.properties root@$kvm_host:/etc/cloudstack/agent/
+  sshpass -p 'P@ssword123' scp -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" $ROOT/agent/target/transformed/log4j-cloud.xml root@$kvm_host:/etc/cloudstack/agent/
+  sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$kvm_host "sed -i 's/INFO/DEBUG/g' /etc/cloudstack/agent/log4j-cloud.xml; sed -i 's/logs\/agent.log/\/var\/log\/cloudstack\/agent\/agent.log/g' /etc/cloudstack/agent/log4j-cloud.xml"
+  sshpass -p 'P@ssword123' scp -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" $ROOT/agent/target/transformed/libvirtqemuhook root@$kvm_host:/usr/share/cloudstack-agent/lib/
+  sshpass -p 'P@ssword123' scp -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" $ROOT/agent/target/transformed/rolling-maintenance root@$kvm_host:/usr/share/cloudstack-agent/lib/
+  sshpass -p 'P@ssword123' scp -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" $ROOT/packaging/systemd/cloudstack-agent.default root@$kvm_host:/etc/default/cloudstack-agent
+  sshpass -p 'P@ssword123' scp -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" $ROOT/agent/target/transformed/cloudstack-agent-profile.sh root@$kvm_host:/etc/profile.d/cloudstack-agent-profile.sh
+
+  sshpass -p 'P@ssword123' scp -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" $ROOT/agent/target/transformed/cloud-setup-agent root@$kvm_host:/usr/bin/cloudstack-setup-agent
+  sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$kvm_host "sed -i 's/@AGENTSYSCONFDIR@/\/etc\/cloudstack\/agent/g' /usr/bin/cloudstack-setup-agent"
+  sshpass -p 'P@ssword123' scp -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" $ROOT/agent/target/transformed/cloud-ssh root@$kvm_host:/usr/bin/cloudstack-ssh
+  sshpass -p 'P@ssword123' scp -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" $ROOT/agent/target/transformed/cloudstack-agent-upgrade root@$kvm_host:/usr/bin/cloudstack-agent-upgrade
+  sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$kvm_host "chmod +x /usr/bin/cloudstack*"
+
+  sshpass -p 'P@ssword123' scp -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" $ROOT/packaging/systemd/cloudstack-agent.service root@$kvm_host:/lib/systemd/system/
+  sshpass -p 'P@ssword123' scp -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" $ROOT/packaging/systemd/cloudstack-rolling-maintenance@.service root@$kvm_host:/lib/systemd/system/
+
+
+  sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no"  root@$kvm_host "systemctl daemon-reload && systemctl status cloudstack-agent && systemctl restart cloudstack-agent"
+
+  echo "[acs agent] Copied all files, KVM agent restarted!"
+}
+
 sshp() {
   echo "Trying ssh with root@$1 with password 'P@ssword123'"
   sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$1
@@ -429,6 +624,8 @@ case "$1" in
     deploy) deploy ${@:2};;
     launch) launch $2;;
     test) test;;
+    dev) dev ${@:2};;
+    agentscp) agentscp ${@:2};;
     ssh) sshp $2;;
     start) start $2;;
     stop) stop $2;;
