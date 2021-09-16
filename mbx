@@ -531,6 +531,7 @@ agentscp() {
   ROOT=$PWD
   echo "[acs agent] Syncing KVM agent changes from development folder to host: $kvm_host"
   sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$kvm_host "mkdir -p /etc/cloudstack/agent/ /usr/share/cloudstack-common/{lib,scripts,vms} /usr/share/cloudstack-agent/{lib,plugins} /var/log/cloudstack/agent/"
+  sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$kvm_host "echo 'paths.pid=/var/run' > /etc/cloudstack/agent/environment.properties; echo 'paths.script=/usr/share/cloudstack-common' >> /etc/cloudstack/agent/environment.properties"
 
   echo "[acs agent] Copied systemvm.iso"
   sshpass -p 'P@ssword123' scp -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" $ROOT/systemvm/dist/systemvm.iso root@$kvm_host:/usr/share/cloudstack-common/vms/
@@ -548,7 +549,6 @@ agentscp() {
   sshpass -p 'P@ssword123' scp -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" -r $ROOT/plugins/hypervisors/kvm/target/dependencies/*jar root@$kvm_host:/usr/share/cloudstack-agent/lib/
 
   echo "[acs agent] Syncing cloudstack-agent config and scripts"
-  sshpass -p 'P@ssword123' scp -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" $ROOT/agent/target/transformed/environment.properties root@$kvm_host:/etc/cloudstack/agent/
   sshpass -p 'P@ssword123' scp -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" $ROOT/agent/target/transformed/log4j-cloud.xml root@$kvm_host:/etc/cloudstack/agent/
   sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$kvm_host "sed -i 's/INFO/DEBUG/g' /etc/cloudstack/agent/log4j-cloud.xml; sed -i 's/logs\/agent.log/\/var\/log\/cloudstack\/agent\/agent.log/g' /etc/cloudstack/agent/log4j-cloud.xml"
   sshpass -p 'P@ssword123' scp -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" $ROOT/agent/target/transformed/libvirtqemuhook root@$kvm_host:/usr/share/cloudstack-agent/lib/
