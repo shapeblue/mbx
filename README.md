@@ -19,7 +19,7 @@ NFS server and KVM are prerequisites to using `mbx`.
 
 ### Install and setup NFS
 
-    apt-get install nfs-kernel-server quota sshpass wget
+    apt-get install nfs-kernel-server quota sshpass wget jq
     echo "/export  *(rw,async,no_root_squash,no_subtree_check)" > /etc/exports
     mkdir -p /export/testing
     exportfs -a

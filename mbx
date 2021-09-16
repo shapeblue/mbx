@@ -487,6 +487,7 @@ dev() {
   export pod_start="172.20.$id.126"
   export pod_end="172.20.$id.250"
   export host1=$(getent hosts $env-host1 | awk '{ print $1 }')
+  export host2="host2"
   export storage_path="/export/testing/$env"
 
   if [[ $hypervisor == "xcp" ]]; then
@@ -516,8 +517,10 @@ dev() {
   fi
 
   envsubst < $ROOT/marvin/$hypervisor.cfg > $ROOT/boxes/$env/marvin.cfg
-  echo "Check and fix the marvin cfg file here: $ROOT/boxes/$env/marvin.cfg"
-  echo "Deploy management server database, start jetty using mvn and then deploy zone using: 'python tools/marvin/marvin/deployDataCenter.py -i $ROOT/boxes/$env/marvin.cfg '"
+  jq "del(.zones|.[0].pods|.[0].clusters|.[0].hosts[1])" $ROOT/boxes/$env/marvin.cfg
+  echo "Marvin cfg file: $ROOT/b xes/$env/marvin.cfg"
+  echo "Deploy CloudStack db, start jetty using mvn, install/upgrade Marvin and then launch zone using:"
+  echo "  python3 tools/marvin/marvin/deployDataCenter.py -i $ROOT/boxes/$env/marvin.cfg"
 }
 
 agentscp() {
