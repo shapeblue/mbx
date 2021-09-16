@@ -71,15 +71,13 @@ export BASE_VERSION=$(echo $VERSION | awk -F . '{print $1"."$2}')
 export ACS_BUILD_OPTS="-Dnoredist -Dnonoss"
 export MAVEN_OPTS="-Xmx4096m -XX:MaxPermSize=800m"
 
-
-# Uncomment this if nonoss needs to be rebuilt
-# LIBS=NONOSS
-# git clone https://github.com/rhtyd/cloudstack-nonoss.git $LIBS --depth=1
-# cd $LIBS
-# bash -x install-non-oss.sh
-# cd $ROOT
-# cp $LIBS/vhd-util scripts/vm/hypervisor/xenserver/
-# chmod +x scripts/vm/hypervisor/xenserver/vhd-util
+LIBS=NONOSS
+git clone https://github.com/shapeblue/cloudstack-nonoss.git $LIBS --depth=1
+cd $LIBS
+bash -x install-non-oss.sh
+cd $ROOT
+cp $LIBS/vhd-util scripts/vm/hypervisor/xenserver/
+chmod +x scripts/vm/hypervisor/xenserver/vhd-util
 
 # Debian stuff
 if [[ $DISTRO == "debian" ]]; then
@@ -92,7 +90,7 @@ if [[ $DISTRO == "debian" ]]; then
 	echo "" >> $ROOT/newchangelog
 	echo "  * Update the version to ${PACKAGE_VERSION}" >> $ROOT/newchangelog
 	echo "" >> $ROOT/newchangelog
-	echo " -- Rohit Yadav <rohit.yadav@shapeblue.com>  $(date +'%a, %-d %b %Y %H:%m:%S +0530')" >> $ROOT/newchangelog
+	echo " -- Apache CloudStack Dev <dev@cloudstack.apache.org>  $(date +'%a, %-d %b %Y %H:%m:%S +0530')" >> $ROOT/newchangelog
 	echo "" >> $ROOT/newchangelog
 	cat $ROOT/debian/changelog >> $ROOT/newchangelog
 	mv $ROOT/newchangelog $ROOT/debian/changelog

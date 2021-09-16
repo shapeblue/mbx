@@ -38,8 +38,8 @@ build() {
   [[ $tag =~ $re ]] && pr_id=$tag && output_dir="${output_dir:=/export/testing/builds/pr/$tag/$distro}"
   output_dir="${output_dir:=/export/testing/builds/$tag/$distro}"
 
-  ROOT=`pwd`
-  uuid=`uuid`
+  CUR=$(pwd)
+  uuid=$(uuid)
   packaging_dir="/tmp/mbx/cloudstack/$uuid"
 
   echo "Pulling $url:$tag to $packaging_dir"
@@ -51,7 +51,7 @@ build() {
   git config remote.origin.url $url
   git config --add remote.origin.fetch +refs/heads/*:refs/remotes/origin/*
 
-  cd $ROOT
+  cd $CUR
 
   # TODO: Build all simultaniously
   case "$distro" in
@@ -531,43 +531,42 @@ agentscp() {
 
   set -x
   kvm_host=$1
-  ROOT=$PWD
+  CUR=$PWD
   echo "[acs agent] Syncing KVM agent changes from development folder to host: $kvm_host"
   sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$kvm_host "mkdir -p /etc/cloudstack/agent/ /usr/share/cloudstack-common/{lib,scripts,vms} /usr/share/cloudstack-agent/{lib,plugins} /var/log/cloudstack/agent/"
   sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$kvm_host "echo 'paths.pid=/var/run' > /etc/cloudstack/agent/environment.properties; echo 'paths.script=/usr/share/cloudstack-common' >> /etc/cloudstack/agent/environment.properties"
 
   echo "[acs agent] Copied systemvm.iso"
-  sshpass -p 'P@ssword123' scp -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" $ROOT/systemvm/dist/systemvm.iso root@$kvm_host:/usr/share/cloudstack-common/vms/
+  sshpass -p 'P@ssword123' scp -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" $CUR/systemvm/dist/systemvm.iso root@$kvm_host:/usr/share/cloudstack-common/vms/
 
   echo "[acs agent] Syncing python lib changes to host: $kvm_host"
-  sshpass -p 'P@ssword123' scp -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" -r $ROOT/python/lib/* root@$kvm_host:/usr/lib64/python2.7/site-packages/ 2>/dev/null || true
-  sshpass -p 'P@ssword123' scp -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" -r $ROOT/python/lib/* root@$kvm_host:/usr/lib64/python3.6/site-packages/ 2>/dev/null || true
+  sshpass -p 'P@ssword123' scp -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" -r $CUR/python/lib/* root@$kvm_host:/usr/lib64/python2.7/site-packages/ 2>/dev/null || true
+  sshpass -p 'P@ssword123' scp -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" -r $CUR/python/lib/* root@$kvm_host:/usr/lib64/python3.6/site-packages/ 2>/dev/null || true
 
   echo "[acs agent] Syncing scripts"
-  sshpass -p 'P@ssword123' scp -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" -r $ROOT/scripts/* root@$kvm_host:/usr/share/cloudstack-common/scripts/
+  sshpass -p 'P@ssword123' scp -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" -r $CUR/scripts/* root@$kvm_host:/usr/share/cloudstack-common/scripts/
 
   echo "[acs agent] Syncing kvm hypervisor jars"
   sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$kvm_host "rm -f /usr/share/cloudstack-agent/lib/*"
-  sshpass -p 'P@ssword123' scp -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" -r $ROOT/plugins/hypervisors/kvm/target/*jar root@$kvm_host:/usr/share/cloudstack-agent/lib/
-  sshpass -p 'P@ssword123' scp -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" -r $ROOT/plugins/hypervisors/kvm/target/dependencies/*jar root@$kvm_host:/usr/share/cloudstack-agent/lib/
+  sshpass -p 'P@ssword123' scp -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" -r $CUR/plugins/hypervisors/kvm/target/*jar root@$kvm_host:/usr/share/cloudstack-agent/lib/
+  sshpass -p 'P@ssword123' scp -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" -r $CUR/plugins/hypervisors/kvm/target/dependencies/*jar root@$kvm_host:/usr/share/cloudstack-agent/lib/
 
   echo "[acs agent] Syncing cloudstack-agent config and scripts"
-  sshpass -p 'P@ssword123' scp -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" $ROOT/agent/target/transformed/log4j-cloud.xml root@$kvm_host:/etc/cloudstack/agent/
+  sshpass -p 'P@ssword123' scp -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" $CUR/agent/target/transformed/log4j-cloud.xml root@$kvm_host:/etc/cloudstack/agent/
   sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$kvm_host "sed -i 's/INFO/DEBUG/g' /etc/cloudstack/agent/log4j-cloud.xml; sed -i 's/logs\/agent.log/\/var\/log\/cloudstack\/agent\/agent.log/g' /etc/cloudstack/agent/log4j-cloud.xml"
-  sshpass -p 'P@ssword123' scp -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" $ROOT/agent/target/transformed/libvirtqemuhook root@$kvm_host:/usr/share/cloudstack-agent/lib/
-  sshpass -p 'P@ssword123' scp -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" $ROOT/agent/target/transformed/rolling-maintenance root@$kvm_host:/usr/share/cloudstack-agent/lib/
-  sshpass -p 'P@ssword123' scp -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" $ROOT/packaging/systemd/cloudstack-agent.default root@$kvm_host:/etc/default/cloudstack-agent
-  sshpass -p 'P@ssword123' scp -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" $ROOT/agent/target/transformed/cloudstack-agent-profile.sh root@$kvm_host:/etc/profile.d/cloudstack-agent-profile.sh
+  sshpass -p 'P@ssword123' scp -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" $CUR/agent/target/transformed/libvirtqemuhook root@$kvm_host:/usr/share/cloudstack-agent/lib/
+  sshpass -p 'P@ssword123' scp -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" $CUR/agent/target/transformed/rolling-maintenance root@$kvm_host:/usr/share/cloudstack-agent/lib/
+  sshpass -p 'P@ssword123' scp -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" $CUR/packaging/systemd/cloudstack-agent.default root@$kvm_host:/etc/default/cloudstack-agent
+  sshpass -p 'P@ssword123' scp -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" $CUR/agent/target/transformed/cloudstack-agent-profile.sh root@$kvm_host:/etc/profile.d/cloudstack-agent-profile.sh
 
-  sshpass -p 'P@ssword123' scp -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" $ROOT/agent/target/transformed/cloud-setup-agent root@$kvm_host:/usr/bin/cloudstack-setup-agent
+  sshpass -p 'P@ssword123' scp -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" $CUR/agent/target/transformed/cloud-setup-agent root@$kvm_host:/usr/bin/cloudstack-setup-agent
   sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$kvm_host "sed -i 's/@AGENTSYSCONFDIR@/\/etc\/cloudstack\/agent/g' /usr/bin/cloudstack-setup-agent"
-  sshpass -p 'P@ssword123' scp -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" $ROOT/agent/target/transformed/cloud-ssh root@$kvm_host:/usr/bin/cloudstack-ssh
-  sshpass -p 'P@ssword123' scp -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" $ROOT/agent/target/transformed/cloudstack-agent-upgrade root@$kvm_host:/usr/bin/cloudstack-agent-upgrade
+  sshpass -p 'P@ssword123' scp -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" $CUR/agent/target/transformed/cloud-ssh root@$kvm_host:/usr/bin/cloudstack-ssh
+  sshpass -p 'P@ssword123' scp -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" $CUR/agent/target/transformed/cloudstack-agent-upgrade root@$kvm_host:/usr/bin/cloudstack-agent-upgrade
   sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$kvm_host "chmod +x /usr/bin/cloudstack*"
 
-  sshpass -p 'P@ssword123' scp -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" $ROOT/packaging/systemd/cloudstack-agent.service root@$kvm_host:/lib/systemd/system/
-  sshpass -p 'P@ssword123' scp -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" $ROOT/packaging/systemd/cloudstack-rolling-maintenance@.service root@$kvm_host:/lib/systemd/system/
-
+  sshpass -p 'P@ssword123' scp -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" $CUR/packaging/systemd/cloudstack-agent.service root@$kvm_host:/lib/systemd/system/
+  sshpass -p 'P@ssword123' scp -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" $CUR/packaging/systemd/cloudstack-rolling-maintenance@.service root@$kvm_host:/lib/systemd/system/
 
   sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no"  root@$kvm_host "systemctl daemon-reload && systemctl status cloudstack-agent && systemctl restart cloudstack-agent"
 
