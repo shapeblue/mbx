@@ -21,12 +21,12 @@ ROOT="$( cd "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )"
 mkdir -p $ROOT/boxes
 touch $ROOT/boxes/boxes.list
 export LIBVIRT_DEFAULT_URI="qemu:///system"
-echo MonkeyBox 🐵 v0.01
+echo MonkeyBox 🐵 v0.1
 
 usage() {
   echo "Available commands are:"
   echo "   init: initialises monkeynet and mbx templates"
-  echo "   build: builds packages from git repo and sha/tag/branch"
+  echo "   package: builds packages from a git repo and sha/tag/branch"
   echo "   list: lists available environments"
   echo "   deploy: deploys QA env with two monkeybox VMs, configures storage, creates marvin cfg file"
   echo "   launch: launches QA env zone using environment's marvin cfg file"
@@ -39,9 +39,57 @@ usage() {
   echo "   destroy: destroy environment"
 }
 
-build() {
+init() {
+  if virsh net-list --all --name | grep -q monkeynet;
+  then
+    echo "'monkeynet' network is already defined, skipped re-initialisation";
+  else
+    virsh net-define $ROOT/monkeynet.xml
+    virsh net-autostart monkeynet
+    virsh net-start monkeynet
+  fi
+  echo "Setting up mbx sudoers file. Please enter sudoer password if you're prompted."
+  sudo cp $ROOT/files/sudoer.mbx /etc/sudoers.d/mbx
+  echo "Updating templates"
+  for template in $(cat $ROOT/templates/md5sum.txt | awk '{print $2}' | sed 's/.qcow2//g'); do
+    virsh undefine mbxt-$template >/dev/null 2>/dev/null || true
+    echo "Updating template: $template"
+    wget --show-progress -nc https://download.cloudstack.org/templates/mbx/$template.qcow2 -O $ROOT/templates/$template.qcow2 || true
+    virsh define $ROOT/templates/xmls/mbxt-$template.xml >/dev/null
+  done
+  echo "Running md5 checksum checks on templates (this may take some time...)"
+  (cd $ROOT/templates && md5sum --check md5sum.txt)
+}
+
+list() {
+  echo
+  for env in $(cat $ROOT/boxes/boxes.list); do
+    echo -e "Name: \033[4m$env\033[0m"
+    for vm in $(cat $ROOT/boxes/$env/list); do
+      ip=$(getent hosts $vm | awk '{ print $1 }')
+      url=""
+      if [[ $vm == *"mgmt"* ]]; then
+        url="http://$ip:8080/client"
+      fi
+      echo -e "$vm\t$ip\t$url"
+      if [[ $vm == *vmw-host1* ]]; then
+        vcip=$(sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$vm vim-cmd "vmsvc/get.guest 1 | grep ipAddress | head -1 | sed 's/.*ipAddress = \"//g' | sed 's/\".*//g'" 2> /dev/null) || true
+        echo -e "VC (photon-machine)\t\t\t$vcip\thttps://$vcip/"
+      fi
+    done
+    echo
+    options+=($env)
+  done
+  if [ ${#options[@]} -eq 0 ]; then
+    echo "No mbx environments found"
+  fi
+  echo "Following mbx templates are available:"
+  virsh list --all | grep mbxt- | awk '{print $2}'
+}
+
+package() {
   if [[ "$1" == "-h" ]]; then
-    echo "Usage: mbx build <repo url> <tag|sha|branch name|pr number> <option distro: centos6/7/8/debian>"
+    echo "Usage: mbx package <repo url> <tag|sha|branch name|pr number> <option distro: centos6/7/8/debian>"
     exit 0
   fi
 
@@ -101,59 +149,19 @@ build() {
   sudo rm -rf $packaging_dir
 }
 
-init() {
-  if virsh net-list --all --name | grep -q monkeynet;
-  then
-    echo "'monkeynet' network is already defined, skipped re-initialisation";
-  else
-    virsh net-define $ROOT/monkeynet.xml
-    virsh net-autostart monkeynet
-    virsh net-start monkeynet
-  fi
-  echo "Setting up mbx sudoers file. Please enter sudoer password if you're prompted."
-  sudo cp $ROOT/files/sudoer.mbx /etc/sudoers.d/mbx
-  echo "Updating templates"
-  for template in $(cat $ROOT/templates/md5sum.txt | awk '{print $2}' | sed 's/.qcow2//g'); do
-    virsh undefine mbxt-$template >/dev/null 2>/dev/null || true
-    echo "Updating template: $template"
-    wget --show-progress -nc https://download.cloudstack.org/templates/mbx/$template.qcow2 -O $ROOT/templates/$template.qcow2 || true
-    virsh define $ROOT/templates/xmls/mbxt-$template.xml >/dev/null
-  done
-  echo "Running md5 checksum checks on templates (this may take some time...)"
-  (cd $ROOT/templates && md5sum --check md5sum.txt)
-}
-
-list() {
-  echo
-  for env in $(cat $ROOT/boxes/boxes.list); do
-    echo -e "Name: \033[4m$env\033[0m"
-    for vm in $(cat $ROOT/boxes/$env/list); do
-      ip=$(getent hosts $vm | awk '{ print $1 }')
-      url=""
-      if [[ $vm == *"mgmt"* ]]; then
-        url="http://$ip:8080/client"
-      fi
-      echo -e "$vm\t$ip\t$url"
-      if [[ $vm == *vmw-host1* ]]; then
-        vcip=$(sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$vm vim-cmd "vmsvc/get.guest 1 | grep ipAddress | head -1 | sed 's/.*ipAddress = \"//g' | sed 's/\".*//g'" 2> /dev/null) || true
-        echo -e "VC (photon-machine)\t\t\t$vcip\thttps://$vcip/"
-      fi
-    done
-    echo
-    options+=($env)
-  done
-  if [ ${#options[@]} -eq 0 ]; then
-    echo "No mbx environments found"
-  fi
-  echo "Following mbx templates are available:"
-  virsh list --all | grep mbxt- | awk '{print $2}'
-}
-
 check_mbxt() {
   if ! virsh list --all | grep mbxt-| grep -q $2; then
     echo "Provided $1 template $2 not found, run 'mbx list' to see list of valid templates"
     exit 1
   fi
+}
+
+sshr() {
+  sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" $@
+}
+
+scpr() {
+  sshpass -p 'P@ssword123' scp -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" $@
 }
 
 deploy() {
@@ -638,7 +646,7 @@ case "$1" in
     -h) usage;;
     init) init;;
     list) list;;
-    build) build ${@:2};;
+    package) package ${@:2};;
     deploy) deploy ${@:2};;
     launch) launch $2;;
     test) test;;
