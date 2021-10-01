@@ -5,9 +5,96 @@
 MonkeyBox `mbx` enables building CloudStack packages and deploying CloudStack
 dev and qa environment using pre-built DHCP-enabled VM templates.
 
+Table of Contents
+=================
+
+* [Architecture](#architecture)
+    * [Storage](#storage)
+    * [Networking](#networking)
+    * [Deployment](#deployment)
+* [Installation and Setup](#installation-and-setup)
+    * [Setup NFS Storage](#setup-nfs-storage)
+    * [Setup KVM](#setup-kvm)
+    * [Setup mbx](#setup-mbx)
+    * [Create Storage Gold-Masters](#create-storage-gold-masters)
+* [Using mbx](#using-mbx)
+* [CloudStack Development](#cloudstack-development)
+    * [Install Development Tools](#install-development-tools)
+    * [Setup MySQL Server](#setup-mysql-server)
+    * [Setup NFS storage](#setup-nfs-storage-1)
+    * [Dev: Build and Test CloudStack](#dev-build-and-test-cloudstack)
+    * [Debugging CloudStack](#debugging-cloudstack)
+* [Contributing](#contributing)
+* [Troubleshooting](#troubleshooting)
+    * [iptables](#iptables)
+
 ## Architecture
 
 ![mbx architecture](doc/images/arch.png)
+
+A `mbx` environment consists of VMs that runs the CloudStack management server
+and hypervisor hosts. These VMs are provisioned on a local host-only `monkeynet`
+network which is a /16 nat-ed RFC1918 IPv4 network. The diagram above shows how
+nested guest VMs and virtual router are plugged in nested-virtual networks that
+run in a nested KVM host VM.
+
+### Storage
+
+`mbx` requires NFS storage to be setup and exported for the base path
+`/export/testing` for environment-specific primary and secondary storages.
+
+A typical `mbx` environment deployment makes copy of a CloudStack
+version-specific gold-master directory that generally containing two empty primary
+storage directory (`primary1` and `primary2`) and one secondary storage
+directory (`secondary`). The secondary storage directory must be seeded
+with CloudStack version-specific `systemvmtemplates`. The `systemvmtemplate` is
+then used to create system VMs such as the Secondary-Storage VM, Console-Proxy
+VM and Virtual Router in an `mbx` environment.
+
+### Networking
+
+`mbx` requires a local 172.20.0.0/16 natted network such that the VMs on this
+network are only accessible from the workstation/host but not by the outside
+network. The `mbx init` command initialises this network.
+
+    External Network
+      .                     +-----------------+
+      |              virbr1 | MonkeyBox VM1   |
+      |                  +--| IP: 172.20.0.10 |
+    +-----------------+  |  +-----------------+
+    | Host x.x.x.x    |--+
+    | IP: 172.20.0.1  |  |  +-----------------+
+    +-----------------+  +--| MonkeyBox VM2   |
+                            | IP: 172.20.x.y  |
+                            +-----------------+
+
+The 172.20.0.0/16 RFC1918 private network is used as the other 192.168.x.x and
+10.x.x.x CIDRs may be already in by VPN, lab resources and office/home networks.
+
+To keep the setup simple all MonkeyBox VMs have a single nic which can be
+used as a single physical network in CloudStack that has the public, private,
+management/control and storage networks. A complex setup is possible by adding
+multiple virtual networks and nics on them.
+
+### Deployment
+
+For QA env, `mbx` will deploy a single `mgmt` VM that runs the management
+server, the usage server, MySQL server, marvin integration tests etc. and two
+hypervisor host VMs.
+
+For Dev env, `mbx` will deploy a single hypervisor host VM and the management
+server, usage server, MySQL server etc. are all run from the workstation/host by
+the developer.
+
+For both QA and Dev environments, the environment-specific NFS storage are
+generally directories under `/export/testing` which serve as both primary and
+secondary storage.
+
+The `mbx` templates are initialised and downloaded at
+`/export/monkeybox/templates/`.
+
+The `mbx` environments, their configurations and VM disks are hosted at
+`/export/monkeybox/boxes/`.
 
 ## Installation and Setup
 
@@ -21,7 +108,7 @@ Additional notes:
 - Default password for all the root user is `P@ssword123`.
 - `mbx` requires docker for building packages: https://docs.docker.com/engine/install/ubuntu/
 
-### Install and Setup NFS Storage
+### Setup NFS Storage
 
     apt-get install nfs-kernel-server quota sshpass wget jq
     echo "/export  *(rw,async,no_root_squash,no_subtree_check)" > /etc/exports
@@ -33,7 +120,7 @@ Additional notes:
     sed -i -e 's/^RPCRQUOTADOPTS=$/RPCRQUOTADOPTS="-p 875"/g' /etc/default/quota
     service nfs-kernel-server restart
 
-### Install and Setup KVM
+### Setup KVM
 
     apt-get install qemu-kvm libvirt-daemon bridge-utils cpu-checker nfs-kernel-server quota
     kvm-ok
@@ -58,9 +145,8 @@ on your machine:
 
 ![VM Manager](doc/images/virt-manager.png)
 
-### Install `mbx`
+### Setup `mbx`
 
-    mkdir -p /export
     git clone https://github.com/shapeblue/mbx /export/monkeybox
 
     # Enable mbx under $PATH, for bash:
@@ -74,37 +160,8 @@ on your machine:
 The `mbx init` is idempotent and can be used to update templates and domain xml
 definitions.
 
-### Setup `mbx` Network
-
-For our local dev-qa environment, we'll create a 172.20.0.0/16 virtual network
-with NAT so VMs on this network are only accessible from the host/laptop but
-not by the outside network. The `mbx init` command will initialise this network.
-
-    External Network
-      .                     +-----------------+
-      |              virbr1 | MonkeyBox VM1   |
-      |                  +--| IP: 172.20.0.10 |
-    +-----------------+  |  +-----------------+
-    | Host x.x.x.x    |--+
-    | IP: 172.20.0.1  |  |  +-----------------+
-    +-----------------+  +--| MonkeyBox VM2   |
-                            | IP: 172.20.x.y  |
-                            +-----------------+
-
-We're choosing here 172.20.0.0/16 as the network range because as per RFC1918
-it is allowed to be used for private networks. The 192.168.x.x and 10.x.x.x
-may be already used by VPN, lab resources and home networks which is why we
-need to choose this range.
-
-To keep the setup simple all MonkeyBox VMs have a single nic which can be
-used as a single physical network in CloudStack that has the public, private,
-management/control and storage networks. A complex setup is possible by adding
-multiple virtual networks and nics on them.
-
-The default network xml definition assumes `virbr1` is not already assigned, in
-case you get an error change the bridge name to something other than `virbr1`.
-
-Finally confirm using:
+The `mbx init` command initialises this network. You can check and confirm the
+network using:
 
     $ virsh net-list
     Name                 State      Autostart     Persistent
@@ -112,53 +169,31 @@ Finally confirm using:
     default              active     yes           yes
     monkeynet            active     yes           yes
 
-    $ ifconfig virbr1
-    virbr1: flags=4099<UP,BROADCAST,MULTICAST>  mtu 1500
-        inet 172.20.0.1  netmask 255.255.0.0  broadcast 172.20.255.255
-        ether 52:54:00:c4:5b:40  txqueuelen 1000  (Ethernet)
-        RX packets 0  bytes 0 (0.0 B)
-        RX errors 0  dropped 0  overruns 0  frame 0
-        TX packets 0  bytes 0 (0.0 B)
-        TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0
-
 Alternatively, you may open `virt-viewer` manager and click on:
 
     Edit -> Connection Details -> Virtual Networks
 
-Add a virtual network with NAT in 172.20.0.0/16 like below:
+You may also manually add/configure a virtual network with NAT in 172.20.0.0/16
+like below:
 
 ![VM Manager Virt Network](doc/images/virt-net.png)
 
-This will create a virtual network with NAT with the CIDR 172.20.0.0/16, your
-gateway will be `172.20.0.1` which is also your host's virtual bridge IP. The
-virtual network's bridge name `virbrX`may be different and it does not matter as long
-as you've a NAT-enabled virtual network in 172.20.0.0/16.
+This will create a virtual network with NAT and CIDR 172.20.0.0/16, the gateway
+`172.20.0.1` is also workstation/host's virtual bridge IP. The virtual network's
+bridge name `virbrX`may be different and it does not matter as long as you've a
+NAT-enabled virtual network in 172.20.0.0/16.
 
-Note: you need to setup virtual networking only once.
+    Your workstation/host IP address is `172.20.0.1`.
 
-### Networking and Dev/QA Setup
+### Create Storage Gold-Masters
 
-Your base platform (laptop) will have the gateway IP `172.20.0.1`.
+After setting up NFS on the workstation host, you need to create a
+CloudStack-version specific storage golden master directory that contains two
+primary storages and secondary storage folder with the systemvmtemplate for a
+specific version of CloudStack seeded. The storage golden master is used as
+storage source of a mbx environment during `mbx deploy` command execution.
 
-For Dev env, run your favourite IDE such as IntelliJ IDEA, text-editors, your
-management server, MySQL server and NFS server (secondary and primary storages)
-on your laptop (not in a VM) where these services can be accessible to VMs, KVM
-hosts etc. at your host IP `172.20.0.1`.
-
-For QA env, the management+usage server, MySQL server, marvin tests etc all will
-run in management VMs and their IPs will be dynamically allocated.
-
-To ssh into deployed VMs (with NSS configured), you can login simply using:
-
-    $ ssh root@<name of VM/domain or IP>
-
-### Storage Setup
-
-After setting up NFS on the host/laptop, you need to create a storage golden
-master directory that contains two primary storages and secondary storage folder
-with the systemvmtemplate for a specific version of CloudStack seeded. The
-storage golden master is used as storage source of a mbx environment during `mbx
-deploy`.
+Note: This is required one-time only for a specific version of CloudStack.
 
 For example, the following is needed only one-time for creating a golden master
 storage directory for 4.15 version:
@@ -183,21 +218,31 @@ storage directory for 4.15 version:
 
 ## Using `mbx`
 
-The `mbx` tool can be used to build packages, deploy KVM/XS/XCP/VMware dev/QA
-environments, run smoketests on them and destroy environments. Usage:
+`mbx` tool can be used to build CloudStack packages, deploy dev or QA
+environments with KVM, VMware, XenServer and XCP-ng hypervisors, and run
+smoketests on them.
 
     $ mbx
-    MonkeyBox 🐵 1.0
+    MonkeyBox 🐵 v0.1
     Available commands are:
       init: initialises monkeynet and mbx templates
-      build: build packages from git repo and sha/tag/branch/PR for versions 4.9+
-      list: list available environments
-      deploy: deploy monkeybox VMs using mbx templates, setup storage
-      launch: creates marvin config file and launches a zone
+      package: builds packages from a git repo and sha/tag/branch
+      list: lists available environments
+      deploy: deploys QA env with two monkeybox VMs, configures storage, creates marvin cfg file
+      launch: launches QA env zone using environment's marvin cfg file
       test: start marvin tests
+      dev: deploys dev env with a single monkeybox VM, configures storage, creates marvin cfg file
+      agentscp: updates KVM agent in dev environment using scp and restarts it
+      ssh: ssh into a mbx VM
+      stop: stop all env VMs
+      start: start all env VMs
       destroy: destroy environment
 
-1. To list available environments and templates (mbxts) run:
+0. On first run, initialise networking and templates, run:
+
+    mbx init
+
+1. To list available environments and `mbx` templates (mbxts) run:
 
     mbx list
 
@@ -211,15 +256,20 @@ Example to deploy test matrix (kvm, vmware, xenserver) environments:
     mbx deploy 415-venv mbxt-kvm-centos7 mbxt-vmware67u3  # deploys 4.15 + VMware67u3 env
     mbx deploy 415-xenv mbxt-kvm-centos7 mbxt-xenserver71 # deploys 4.15 + XenServer71 env
 
-3. To deploy a zone, run:
+More examples with specific repositories and custom storage source: (custom storage source must exist)
 
-    mbx launch <name of the env, see mbx list for env name>
+    mbx deploy 416-snapshot mbxt-kvm-centos7 mbxt-kvm-centos7 http://download.cloudstack.org/testing/nightly/latest/centos7/4.16 /export/testing/4.16.0
+
+3. Once `mbx` environment is deployed, to launch a zone run:
+
+    mbx launch <name of the env, run `mbx list` for env name>
 
 4. To run smoketests, run:
 
     mbx list # find your environment
-    ssh root@<mgmt server name or IP>
+    mbx ssh <name of the mbx VM>
     cd /marvin # here you'll find smoketests.sh to run smoketests
+    bash -x smoketests.sh
 
 5. To destroy your mbx environment, run:
 
@@ -229,6 +279,18 @@ Example to deploy test matrix (kvm, vmware, xenserver) environments:
 
 This section cover how a developer can run management server and MySQL server
 locally to do local CloudStack development along side an IDE.
+
+For developer env, it is recommended that you run your favourite IDE such as
+IntelliJ IDEA, text-editors, your management server, MySQL server and NFS server
+(secondary and primary storages) on your workstation (not in a VM) where these
+services can be accessible to VMs, KVM hosts etc. at your host IP `172.20.0.1`.
+
+To ssh into deployed VMs (with NSS configured), you can login simply using:
+
+    $ mbx ssh <name of VM>
+
+Refer to hackerbook for up-to-date guidance on CloudStack development:
+https://github.com/shapeblue/hackerbook
 
 ### Install Development Tools
 
@@ -370,6 +432,8 @@ address:port and put breakpoints (and watches) as applicable.
 
 ## Contributing
 
+Report issues on https://github.com/shapeblue/mbx/issues
+
 Send a pull request on https://github.com/shapeblue/mbx
 
 ## Troubleshooting
@@ -404,7 +468,7 @@ Clearing your iptables and setting new rules should take care of the issue. (Tes
 
 Run the following commands as su or with sudo powers.
 
-First, flush your rules and delete any user-defined chains:
+Backup and then flush your rules and delete any user-defined chains:
 
     $ iptables -t nat -F && iptables -t nat -X
     $ iptables -t filter -F && iptables -t filter -X
