@@ -1,23 +1,28 @@
-# mbx
+# mbx 🐒📦
 
-<img src="https://raw.githubusercontent.com/rhtyd/monkeybox/master/doc/images/box-start.png" style="width:400px;">
+<img src="https://raw.githubusercontent.com/rhtyd/monkeybox/master/doc/images/box-start.png" style="width:500px;">
 
-mbx allows to build packages and deploy CloudStack dev and qa environment using
-pre-built DHCP-enabled VM templates.
+MonkeyBox `mbx` enables building CloudStack packages and deploying CloudStack
+dev and qa environment using pre-built DHCP-enabled VM templates.
 
-Notes:
-- This has been tested with Ubuntu 20.04 LTS and QEMU 4.2.
-- Your laptop/platform has at least 32GB RAM and x86_64 Intel-VT or AMD-V
-  enabled CPU so you can run hardware-accelerated nested hypervisors.
-- If you've any other hypervisor such as VirtualBox or VMware workstations
-  please uninstall it before proceeding further.
-- Default password for the root user is `P@ssword123`.
 
-## Installation
+## Architecture
 
-NFS server and KVM are prerequisites to using `mbx`.
+<img src="https://raw.githubusercontent.com/rhtyd/monkeybox/master/doc/images/arch.png" style="width:500px;">
 
-### Install and setup NFS
+## Installation and Setup
+
+`mbx` has been tested against Ubuntu 20.04 LTS with KVM+QEMU 4.2 and NFS storage.
+
+We recommend at least 32GB RAM with x86_64 Intel VT-x or AMD-V enabled CPU on the
+workstation/host where `mbx` is used and uninstall any other hypervisors such as
+VirtualBox or VMware workstation.
+
+Additional notes:
+- Default password for all the root user is `P@ssword123`.
+- `mbx` requires docker for building packages: https://docs.docker.com/engine/install/ubuntu/
+
+### Install and Setup NFS Storage
 
     apt-get install nfs-kernel-server quota sshpass wget jq
     echo "/export  *(rw,async,no_root_squash,no_subtree_check)" > /etc/exports
@@ -29,7 +34,7 @@ NFS server and KVM are prerequisites to using `mbx`.
     sed -i -e 's/^RPCRQUOTADOPTS=$/RPCRQUOTADOPTS="-p 875"/g' /etc/default/quota
     service nfs-kernel-server restart
 
-### Install and setup KVM
+### Install and Setup KVM
 
     apt-get install qemu-kvm libvirt-daemon bridge-utils cpu-checker nfs-kernel-server quota
     kvm-ok
@@ -54,15 +59,16 @@ on your machine:
 
 ![VM Manager](doc/images/virt-manager.png)
 
-Install docker for packaging, follow: https://docs.docker.com/engine/install/ubuntu/
-
 ### Install `mbx`
 
+    mkdir -p /export
     git clone https://github.com/shapeblue/mbx /export/monkeybox
+
     # Enable mbx under $PATH, for bash:
     echo export PATH="/export/monkeybox:$PATH" >> ~/.bashrc
     # Enable mbx under $PATH, for zsh:
     echo export PATH="/export/monkeybox:$PATH" >> ~/.zshrc
+
     # Initialise `mbx` by opening in another shell:
     mbx init
 
