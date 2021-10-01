@@ -1,6 +1,6 @@
 # mbx 🐒📦
 
-<img src="https://raw.githubusercontent.com/rhtyd/monkeybox/master/doc/images/box-start.png" style="width:500px;">
+<img src="https://raw.githubusercontent.com/rhtyd/monkeybox/main/doc/images/box-start.png" style="width:500px;">
 
 MonkeyBox `mbx` enables building CloudStack packages and deploying CloudStack
 dev and qa environment using pre-built DHCP-enabled VM templates.
@@ -8,7 +8,7 @@ dev and qa environment using pre-built DHCP-enabled VM templates.
 
 ## Architecture
 
-<img src="https://raw.githubusercontent.com/rhtyd/monkeybox/master/doc/images/arch.png" style="width:500px;">
+<img src="https://raw.githubusercontent.com/rhtyd/monkeybox/main/doc/images/arch.png" style="width:500px;">
 
 ## Installation and Setup
 
