@@ -1,8 +1,8 @@
 <domain type='kvm'>
   <name>mbxt-xcpng82</name>
   <uuid>89c279dc-5353-4a86-8dce-2e77a84ccdd7</uuid>
-  <memory unit='KiB'>6291456</memory>
-  <currentMemory unit='KiB'>6291456</currentMemory>
+  <memory unit='KiB'>8388608</memory>
+  <currentMemory unit='KiB'>8388608</currentMemory>
   <vcpu placement='static'>4</vcpu>
   <os>
     <type arch='x86_64' machine='pc'>hvm</type>
