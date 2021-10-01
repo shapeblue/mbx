@@ -38,6 +38,13 @@ network which is a /16 nat-ed RFC1918 IPv4 network. The diagram above shows how
 nested guest VMs and virtual router are plugged in nested-virtual networks that
 run in a nested KVM host VM.
 
+To learn more about CloudStack as a user, you may read:
+
+https://github.com/shapeblue/hackerbook/blob/main/0-init.md
+
+https://github.com/shapeblue/hackerbook/blob/main/1-user.md
+
+
 ### Storage
 
 `mbx` requires NFS storage to be setup and exported for the base path
