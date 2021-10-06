@@ -604,11 +604,6 @@ agentscp() {
   echo "[acs agent] Copied all files, KVM agent restarted!"
 }
 
-sshp() {
-  echo "Trying ssh with root@$1 with password 'P@ssword123'"
-  issh root@$1
-}
-
 stop() {
   env=$1
   if [ -z "$env" ]; then
@@ -643,8 +638,8 @@ destroy() {
     virsh destroy $vm 2> /dev/null || true;
     virsh undefine $vm;
   done
-  sed -i "/$env/d" $ROOT/boxes/boxes.list
   sync
+  sed -i "/$env/d" $ROOT/boxes/boxes.list
   rm -fr $ROOT/boxes/$env
   sudo rm -fr /export/testing/$env
 }
@@ -660,7 +655,7 @@ case "$1" in
     test) test;;
     dev) dev ${@:2};;
     agentscp) agentscp ${@:2};;
-    ssh) sshp $2;;
+    ssh) issh root@$2;;
     start) start $2;;
     stop) stop $2;;
     destroy) destroy $2;;
