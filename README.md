@@ -104,8 +104,7 @@ The `mbx` environments, their configurations and VM disks are hosted at
 ## Compatibility
 
 Host requirements:
-- Ubuntu 20.04 LTS (recommended)
-- CentOS 7
+- Ubuntu 20.04 LTS (recommended) or CentOS 7
 - Recommended 32GB RAM with Intel VT-x or AMD-V enabled 4+cores CPU
 - Uninstall any other hypervisor software (such as VMware workstation, VirtualBox)
 
