@@ -1,0 +1,26 @@
+{
+    "cs413": {
+        "kvm": "https://download.cloudstack.org/systemvm/4.11/systemvmtemplate-4.11.3-kvm.qcow2.bz2",
+        "xs": "https://download.cloudstack.org/systemvm/4.11/systemvmtemplate-4.11.3-xen.vhd.bz2",
+        "vmware": "https://download.cloudstack.org/systemvm/4.11/systemvmtemplate-4.11.3-vmware.ova",
+        "md5sum": "https://download.cloudstack.org/systemvm/4.11/md5sum.txt"
+    },
+    "cs414": {
+        "kvm": "https://download.cloudstack.org/systemvm/4.14/systemvmtemplate-4.14.0-kvm.qcow2.bz2",
+        "xs": "https://download.cloudstack.org/systemvm/4.14/systemvmtemplate-4.14.0-xen.vhd.bz2",
+        "vmware": "https://download.cloudstack.org/systemvm/4.14/systemvmtemplate-4.14.0-vmware.ova",
+        "md5sum": "https://download.cloudstack.org/systemvm/4.14/md5sum.txt"
+    },
+    "cs415": {
+        "kvm": "https://download.cloudstack.org/systemvm/4.15/systemvmtemplate-4.15.1-kvm.qcow2.bz2",
+        "xs": "https://download.cloudstack.org/systemvm/4.15/systemvmtemplate-4.15.1-xen.vhd.bz2",
+        "vmware": "https://download.cloudstack.org/systemvm/4.15/systemvmtemplate-4.15.1-vmware.ova",
+        "md5sum": "https://download.cloudstack.org/systemvm/4.15/md5sum.txt"
+    },
+    "cs416": {
+        "kvm": "https://download.cloudstack.org/systemvm/4.16/systemvmtemplate-4.16.0-kvm.qcow2.bz2",
+        "xs": "https://download.cloudstack.org/systemvm/4.16/systemvmtemplate-4.16.0-xen.vhd.bz2",
+        "vmware": "https://download.cloudstack.org/systemvm/4.16/systemvmtemplate-4.16.0-vmware.ova",
+        "md5sum": "https://download.cloudstack.org/systemvm/4.16/md5sum.txt"
+    }
+}
