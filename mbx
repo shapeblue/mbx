@@ -138,8 +138,8 @@ package() {
   docker run -d -v $packaging_dir:/jenkins -v $output_dir:/output  --name $container_name $image_name /usr/sbin/sshd -D -p 22
   builder_ip=`docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' $container_name `
 
-  sshpass -p 'P@ssword123' scp -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" files/build.sh root@$builder_ip://jenkins/build.sh
-  sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$builder_ip \
+  iscp files/build.sh root@$builder_ip://jenkins/build.sh
+  issh root@$builder_ip \
     PR_ID=$pr_id ACS_BRANCH=$tag DISTRO=$distro bash -x /jenkins/build.sh
 
   echo "Packages can be found at $output_dir"
@@ -252,9 +252,9 @@ deploy() {
 
     # KVM and mgmt server
     if [[ "$hypervisor" == "kvm" || "$hypervisor" == "xen" || "$hypervisor" == "xcp" || "$box" == "$env-mgmt1" ]]; then
-      sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$box hostnamectl set-hostname $box
-      sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$box "echo $ip $box >> /etc/hosts"
-      sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$box "cat /etc/hosts"
+      issh root@$box hostnamectl set-hostname $box
+      issh root@$box "echo $ip $box >> /etc/hosts"
+      issh root@$box "cat /etc/hosts"
       echo "$box hostname fixed"
     fi
 
@@ -263,18 +263,18 @@ deploy() {
       sleep 30
       vcmac=$( (date; cat /proc/interrupts) | md5sum | sed -r 's/^(.{4}).*$/\1/;s/([0-9a-f]{2})/\1:/g;s/^/00:50:56:00:/;s/:$//' )
       if [[ "$hyt" == "mbxt-vmware70u1" ]]; then
-        sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$box "echo 'ethernet0.addressType = \"static\"' >> /vmfs/volumes/datastore1/VC/VC.vmx"
-        sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$box "echo 'ethernet0.address = \"${vcmac}\"' >> /vmfs/volumes/datastore1/VC/VC.vmx"
+        issh root@$box "echo 'ethernet0.addressType = \"static\"' >> /vmfs/volumes/datastore1/VC/VC.vmx"
+        issh root@$box "echo 'ethernet0.address = \"${vcmac}\"' >> /vmfs/volumes/datastore1/VC/VC.vmx"
       fi
-      sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$box vim-cmd vmsvc/getallvms
-      sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$box vim-cmd vmsvc/power.on 1
+      issh root@$box vim-cmd vmsvc/getallvms
+      issh root@$box vim-cmd vmsvc/power.on 1
       echo "VC started"
     fi
     if [[ "$hypervisor" == "vmw" && "$box" == "$env-host2" ]]; then
       sleep 10
-      sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$box vim-cmd vmsvc/unregister 1
-      sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$box vim-cmd vmsvc/getallvms
-      sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$box vim-cmd hostsvc/datastore/remove datastore1
+      issh root@$box vim-cmd vmsvc/unregister 1
+      issh root@$box vim-cmd vmsvc/getallvms
+      issh root@$box vim-cmd hostsvc/datastore/remove datastore1
       echo "VC and datastore1 on other ESXi host cleaned"
     fi
 
@@ -282,11 +282,11 @@ deploy() {
     if [[ "$hypervisor" == "xen" || "$hypervisor" == "xcp" ]]; then
       if [[ "$box" == "$env-host1" ]]; then
         sleep 30 # wait for xapi to come up
-        sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$box "xe host-param-set uuid=\$(xe host-list params=uuid|awk {'print \$5'} | head -n 1) name-label=$env-host1"
+        issh root@$box "xe host-param-set uuid=\$(xe host-list params=uuid|awk {'print \$5'} | head -n 1) name-label=$env-host1"
       fi
       if [[ "$box" == "$env-host2" ]]; then
-        sshpass -p 'P@ssword123' scp -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" $ROOT/files/xenfix.sh root@$box:/root/
-        sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" -o "ServerAliveInterval 2" root@$box "bash -x /root/xenfix.sh" || true
+        iscp $ROOT/files/xenfix.sh root@$box:/root/
+        issh -o "ServerAliveInterval 2" root@$box "bash -x /root/xenfix.sh" || true
       fi
     fi
   done
@@ -294,33 +294,33 @@ deploy() {
   # Setup Management Server
   msip=$(getent hosts $env-mgmt1 | awk '{ print $1 }')
   # Fix CentOS7 repo
-  sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$msip "sed -i '/^baseurl=.*/d' /etc/yum.repos.d/cloudstack.repo && echo baseurl=$repo >> /etc/yum.repos.d/cloudstack.repo"
-  sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$msip systemctl enable --now mariadb
-  sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$msip yum reinstall -y python3-pip
-  sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$msip "pip3 install --upgrade pip && pip3 install --ignore-installed netaddr mysql-connector-python"
-  sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$msip "pip2 install --upgrade pip && pip2 install --ignore-installed netaddr mysql-connector-python"
-  sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$msip yum install -y cloudstack-management cloudstack-usage cloudstack-common cloudstack-integration-tests cloudstack-marvin
-  sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$msip "cloudstack-setup-databases cloud:cloud@localhost --deploy-as=root: -i $msip"
-  sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$msip "mysql -u root --execute=\"INSERT INTO cloud.configuration (category, instance, component, name, value) VALUES ('Advanced', 'DEFAULT', 'management-server', 'integration.api.port', '8096');\""
-  sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$msip cloudstack-setup-management
+  issh root@$msip "sed -i '/^baseurl=.*/d' /etc/yum.repos.d/cloudstack.repo && echo baseurl=$repo >> /etc/yum.repos.d/cloudstack.repo"
+  issh root@$msip systemctl enable --now mariadb
+  issh root@$msip yum reinstall -y python3-pip
+  issh root@$msip "pip3 install --upgrade pip && pip3 install --ignore-installed netaddr mysql-connector-python"
+  issh root@$msip "pip2 install --upgrade pip && pip2 install --ignore-installed netaddr mysql-connector-python"
+  issh root@$msip yum install -y cloudstack-management cloudstack-usage cloudstack-common cloudstack-integration-tests cloudstack-marvin
+  issh root@$msip "cloudstack-setup-databases cloud:cloud@localhost --deploy-as=root: -i $msip"
+  issh root@$msip "mysql -u root --execute=\"INSERT INTO cloud.configuration (category, instance, component, name, value) VALUES ('Advanced', 'DEFAULT', 'management-server', 'integration.api.port', '8096');\""
+  issh root@$msip cloudstack-setup-management
 
   # Setup KVM hosts
   if [[ $hypervisor == "kvm" ]]; then
     # Fix CentOS7 repo
-    sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$env-host1 "sed -i '/^baseurl=.*/d' /etc/yum.repos.d/cloudstack.repo && echo baseurl=$repo >> /etc/yum.repos.d/cloudstack.repo"
-    sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$env-host1 yum install -y cloudstack-agent
-    sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$env-host1 "echo host.reserved.mem.mb=512 >> /etc/cloudstack/agent/agent.properties"
+    issh root@$env-host1 "sed -i '/^baseurl=.*/d' /etc/yum.repos.d/cloudstack.repo && echo baseurl=$repo >> /etc/yum.repos.d/cloudstack.repo"
+    issh root@$env-host1 yum install -y cloudstack-agent
+    issh root@$env-host1 "echo host.reserved.mem.mb=512 >> /etc/cloudstack/agent/agent.properties"
     # Fix CentOS7 repo
-    sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$env-host2 "sed -i '/^baseurl=.*/d' /etc/yum.repos.d/cloudstack.repo && echo baseurl=$repo >> /etc/yum.repos.d/cloudstack.repo"
-    sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$env-host2 yum install -y cloudstack-agent
-    sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$env-host2 "echo host.reserved.mem.mb=512 >> /etc/cloudstack/agent/agent.properties"
+    issh root@$env-host2 "sed -i '/^baseurl=.*/d' /etc/yum.repos.d/cloudstack.repo && echo baseurl=$repo >> /etc/yum.repos.d/cloudstack.repo"
+    issh root@$env-host2 yum install -y cloudstack-agent
+    issh root@$env-host2 "echo host.reserved.mem.mb=512 >> /etc/cloudstack/agent/agent.properties"
   fi
 
   # Setup xen/xcp hosts
   if [[ $hypervisor == "xen" || $hypervisor == "xcp" ]]; then
     masterip=$(getent hosts $env-host1 | awk '{ print $1 }')
-    sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$env-host1 "xe pool-param-set name-label=${env}1 uuid=\$(xe pool-list --minimal)"
-    sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$env-host2 "xe pool-join master-address=${masterip} master-username=root master-password=P@ssword123"
+    issh root@$env-host1 "xe pool-param-set name-label=${env}1 uuid=\$(xe pool-list --minimal)"
+    issh root@$env-host2 "xe pool-join master-address=${masterip} master-username=root master-password=P@ssword123"
   fi
 
   # Generate marvin config
@@ -342,7 +342,7 @@ deploy() {
   export vcip=
   if [[ $hypervisor == "vmw" ]]; then
     while : ; do
-      vcip=$(sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$env-host1 vim-cmd "vmsvc/get.guest 1 | grep ipAddress | head -1 | sed 's/.*ipAddress = \"//g' | sed 's/\".*//g'")
+      vcip=$(issh root@$env-host1 vim-cmd "vmsvc/get.guest 1 | grep ipAddress | head -1 | sed 's/.*ipAddress = \"//g' | sed 's/\".*//g'")
       if [[ "$vcip" == *"unset"* ]]; then
         echo "Waiting for VC to be UP"
         sleep 5
@@ -476,38 +476,38 @@ dev() {
     sleep 5
     # KVM or XenServer/XCP-ng host
     if [[ "$hypervisor" == "kvm" || "$hypervisor" == "xen" || "$hypervisor" == "xcp" ]]; then
-      sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$box hostnamectl set-hostname $box
-      sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$box "echo $ip $box >> /etc/hosts"
-      sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$box "cat /etc/hosts"
+      issh root@$box hostnamectl set-hostname $box
+      issh root@$box "echo $ip $box >> /etc/hosts"
+      issh root@$box "cat /etc/hosts"
       echo "$box hostname fixed"
     fi
     # VMware: Start VC
     if [[ "$hypervisor" == "vmw" && "$box" == "$env-host1" ]]; then
       vcmac=$( (date; cat /proc/interrupts) | md5sum | sed -r 's/^(.{4}).*$/\1/;s/([0-9a-f]{2})/\1:/g;s/^/00:50:56:00:/;s/:$//' )
       if [[ "$hyt" == "mbxt-vmware70u1" ]]; then
-        sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$box "echo 'ethernet0.addressType = \"static\"' >> /vmfs/volumes/datastore1/VC/VC.vmx"
-        sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$box "echo 'ethernet0.address = \"${vcmac}\"' >> /vmfs/volumes/datastore1/VC/VC.vmx"
+        issh root@$box "echo 'ethernet0.addressType = \"static\"' >> /vmfs/volumes/datastore1/VC/VC.vmx"
+        issh root@$box "echo 'ethernet0.address = \"${vcmac}\"' >> /vmfs/volumes/datastore1/VC/VC.vmx"
       fi
-      sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$box vim-cmd vmsvc/getallvms
-      sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$box vim-cmd vmsvc/power.on 1
+      issh root@$box vim-cmd vmsvc/getallvms
+      issh root@$box vim-cmd vmsvc/power.on 1
       echo "VC started"
     fi
     # XenServer: Make hosts unique
     if [[ "$hypervisor" == "xen" || "$hypervisor" == "xcp" ]]; then
       if [[ "$box" == "$env-host1" ]]; then
-        sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$box "xe host-param-set uuid=\$(xe host-list params=uuid|awk {'print \$5'} | head -n 1) name-label=$env-host1"
+        issh root@$box "xe host-param-set uuid=\$(xe host-list params=uuid|awk {'print \$5'} | head -n 1) name-label=$env-host1"
       fi
     fi
   done
   # Setup KVM hosts
   if [[ $hypervisor == "kvm" ]]; then
-    sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$env-host1 "echo host.reserved.mem.mb=512 >> /etc/cloudstack/agent/agent.properties"
-    sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$env-host1 "yum install -y openssh-clients java-11-openjdk libvirt bridge-utils ebtables iptables ethtool net-tools iproute ipset perl python36-libvirt qemu-img qemu-kvm python python3 python3-pip"
+    issh root@$env-host1 "echo host.reserved.mem.mb=512 >> /etc/cloudstack/agent/agent.properties"
+    issh root@$env-host1 "yum install -y openssh-clients java-11-openjdk libvirt bridge-utils ebtables iptables ethtool net-tools iproute ipset perl python36-libvirt qemu-img qemu-kvm python python3 python3-pip"
   fi
   # Setup xen/xcp hosts
   if [[ $hypervisor == "xen" || $hypervisor == "xcp" ]]; then
     masterip=$(getent hosts $env-host1 | awk '{ print $1 }')
-    sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$env-host1 "xe pool-param-set name-label=${env}1 uuid=\$(xe pool-list --minimal)"
+    issh root@$env-host1 "xe pool-param-set name-label=${env}1 uuid=\$(xe pool-list --minimal)"
   fi
 
   # Generate marvin config
@@ -529,7 +529,7 @@ dev() {
   export vcip=
   if [[ $hypervisor == "vmw" ]]; then
     while : ; do
-      vcip=$(sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$env-host1 vim-cmd "vmsvc/get.guest 1 | grep ipAddress | head -1 | sed 's/.*ipAddress = \"//g' | sed 's/\".*//g'")
+      vcip=$(issh root@$env-host1 vim-cmd "vmsvc/get.guest 1 | grep ipAddress | head -1 | sed 's/.*ipAddress = \"//g' | sed 's/\".*//g'")
       if [[ "$vcip" == *"unset"* ]]; then
         echo "Waiting for VC to be UP"
         sleep 5
@@ -564,49 +564,49 @@ agentscp() {
   kvm_host=$1
   CUR=$PWD
   echo "[acs agent] Syncing KVM agent changes from development folder to host: $kvm_host"
-  sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$kvm_host "mkdir -p /etc/cloudstack/agent/ /usr/share/cloudstack-common/{lib,scripts,vms} /usr/share/cloudstack-agent/{lib,plugins} /var/log/cloudstack/agent/"
-  sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$kvm_host "echo 'paths.pid=/var/run' > /etc/cloudstack/agent/environment.properties; echo 'paths.script=/usr/share/cloudstack-common' >> /etc/cloudstack/agent/environment.properties"
+  issh root@$kvm_host "mkdir -p /etc/cloudstack/agent/ /usr/share/cloudstack-common/{lib,scripts,vms} /usr/share/cloudstack-agent/{lib,plugins} /var/log/cloudstack/agent/"
+  issh root@$kvm_host "echo 'paths.pid=/var/run' > /etc/cloudstack/agent/environment.properties; echo 'paths.script=/usr/share/cloudstack-common' >> /etc/cloudstack/agent/environment.properties"
 
   echo "[acs agent] Copied systemvm.iso"
-  sshpass -p 'P@ssword123' scp -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" $CUR/systemvm/dist/systemvm.iso root@$kvm_host:/usr/share/cloudstack-common/vms/
+  iscp $CUR/systemvm/dist/systemvm.iso root@$kvm_host:/usr/share/cloudstack-common/vms/
 
   echo "[acs agent] Syncing python lib changes to host: $kvm_host"
-  sshpass -p 'P@ssword123' scp -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" -r $CUR/python/lib/* root@$kvm_host:/usr/lib64/python2.7/site-packages/ 2>/dev/null || true
-  sshpass -p 'P@ssword123' scp -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" -r $CUR/python/lib/* root@$kvm_host:/usr/lib64/python3.6/site-packages/ 2>/dev/null || true
+  iscp -r $CUR/python/lib/* root@$kvm_host:/usr/lib64/python2.7/site-packages/ 2>/dev/null || true
+  iscp -r $CUR/python/lib/* root@$kvm_host:/usr/lib64/python3.6/site-packages/ 2>/dev/null || true
 
   echo "[acs agent] Syncing scripts"
-  sshpass -p 'P@ssword123' scp -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" -r $CUR/scripts/* root@$kvm_host:/usr/share/cloudstack-common/scripts/
+  iscp -r $CUR/scripts/* root@$kvm_host:/usr/share/cloudstack-common/scripts/
 
   echo "[acs agent] Syncing kvm hypervisor jars"
-  sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$kvm_host "rm -f /usr/share/cloudstack-agent/lib/*"
-  sshpass -p 'P@ssword123' scp -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" -r $CUR/plugins/hypervisors/kvm/target/*jar root@$kvm_host:/usr/share/cloudstack-agent/lib/
-  sshpass -p 'P@ssword123' scp -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" -r $CUR/plugins/hypervisors/kvm/target/dependencies/*jar root@$kvm_host:/usr/share/cloudstack-agent/lib/
+  issh root@$kvm_host "rm -f /usr/share/cloudstack-agent/lib/*"
+  iscp -r $CUR/plugins/hypervisors/kvm/target/*jar root@$kvm_host:/usr/share/cloudstack-agent/lib/
+  iscp -r $CUR/plugins/hypervisors/kvm/target/dependencies/*jar root@$kvm_host:/usr/share/cloudstack-agent/lib/
 
   echo "[acs agent] Syncing cloudstack-agent config and scripts"
-  sshpass -p 'P@ssword123' scp -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" $CUR/agent/target/transformed/log4j-cloud.xml root@$kvm_host:/etc/cloudstack/agent/
-  sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$kvm_host "sed -i 's/INFO/DEBUG/g' /etc/cloudstack/agent/log4j-cloud.xml; sed -i 's/logs\/agent.log/\/var\/log\/cloudstack\/agent\/agent.log/g' /etc/cloudstack/agent/log4j-cloud.xml"
-  sshpass -p 'P@ssword123' scp -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" $CUR/agent/target/transformed/libvirtqemuhook root@$kvm_host:/usr/share/cloudstack-agent/lib/
-  sshpass -p 'P@ssword123' scp -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" $CUR/agent/target/transformed/rolling-maintenance root@$kvm_host:/usr/share/cloudstack-agent/lib/
-  sshpass -p 'P@ssword123' scp -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" $CUR/packaging/systemd/cloudstack-agent.default root@$kvm_host:/etc/default/cloudstack-agent
-  sshpass -p 'P@ssword123' scp -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" $CUR/agent/target/transformed/cloudstack-agent-profile.sh root@$kvm_host:/etc/profile.d/cloudstack-agent-profile.sh
+  iscp $CUR/agent/target/transformed/log4j-cloud.xml root@$kvm_host:/etc/cloudstack/agent/
+  issh root@$kvm_host "sed -i 's/INFO/DEBUG/g' /etc/cloudstack/agent/log4j-cloud.xml; sed -i 's/logs\/agent.log/\/var\/log\/cloudstack\/agent\/agent.log/g' /etc/cloudstack/agent/log4j-cloud.xml"
+  iscp $CUR/agent/target/transformed/libvirtqemuhook root@$kvm_host:/usr/share/cloudstack-agent/lib/
+  iscp $CUR/agent/target/transformed/rolling-maintenance root@$kvm_host:/usr/share/cloudstack-agent/lib/
+  iscp $CUR/packaging/systemd/cloudstack-agent.default root@$kvm_host:/etc/default/cloudstack-agent
+  iscp $CUR/agent/target/transformed/cloudstack-agent-profile.sh root@$kvm_host:/etc/profile.d/cloudstack-agent-profile.sh
 
-  sshpass -p 'P@ssword123' scp -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" $CUR/agent/target/transformed/cloud-setup-agent root@$kvm_host:/usr/bin/cloudstack-setup-agent
-  sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$kvm_host "sed -i 's/@AGENTSYSCONFDIR@/\/etc\/cloudstack\/agent/g' /usr/bin/cloudstack-setup-agent"
-  sshpass -p 'P@ssword123' scp -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" $CUR/agent/target/transformed/cloud-ssh root@$kvm_host:/usr/bin/cloudstack-ssh
-  sshpass -p 'P@ssword123' scp -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" $CUR/agent/target/transformed/cloudstack-agent-upgrade root@$kvm_host:/usr/bin/cloudstack-agent-upgrade
-  sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$kvm_host "chmod +x /usr/bin/cloudstack*"
+  iscp $CUR/agent/target/transformed/cloud-setup-agent root@$kvm_host:/usr/bin/cloudstack-setup-agent
+  issh root@$kvm_host "sed -i 's/@AGENTSYSCONFDIR@/\/etc\/cloudstack\/agent/g' /usr/bin/cloudstack-setup-agent"
+  iscp $CUR/agent/target/transformed/cloud-ssh root@$kvm_host:/usr/bin/cloudstack-ssh
+  iscp $CUR/agent/target/transformed/cloudstack-agent-upgrade root@$kvm_host:/usr/bin/cloudstack-agent-upgrade
+  issh root@$kvm_host "chmod +x /usr/bin/cloudstack*"
 
-  sshpass -p 'P@ssword123' scp -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" $CUR/packaging/systemd/cloudstack-agent.service root@$kvm_host:/lib/systemd/system/
-  sshpass -p 'P@ssword123' scp -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" $CUR/packaging/systemd/cloudstack-rolling-maintenance@.service root@$kvm_host:/lib/systemd/system/
+  iscp $CUR/packaging/systemd/cloudstack-agent.service root@$kvm_host:/lib/systemd/system/
+  iscp $CUR/packaging/systemd/cloudstack-rolling-maintenance@.service root@$kvm_host:/lib/systemd/system/
 
-  sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no"  root@$kvm_host "systemctl daemon-reload && systemctl status cloudstack-agent && systemctl restart cloudstack-agent"
+  issh  root@$kvm_host "systemctl daemon-reload && systemctl status cloudstack-agent && systemctl restart cloudstack-agent"
 
   echo "[acs agent] Copied all files, KVM agent restarted!"
 }
 
 sshp() {
   echo "Trying ssh with root@$1 with password 'P@ssword123'"
-  sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$1
+  issh root@$1
 }
 
 stop() {
