@@ -12,6 +12,7 @@ Table of Contents
     * [Storage](#storage)
     * [Networking](#networking)
     * [Deployment](#deployment)
+* [Compatibility](#compatibility)
 * [Installation and Setup](#installation-and-setup)
     * [Setup NFS Storage](#setup-nfs-storage)
     * [Setup KVM](#setup-kvm)
@@ -39,11 +40,8 @@ nested guest VMs and virtual router are plugged in nested-virtual networks that
 run in a nested KVM host VM.
 
 To learn more about CloudStack as a user, you may read:
-
 https://github.com/shapeblue/hackerbook/blob/main/0-init.md
-
 https://github.com/shapeblue/hackerbook/blob/main/1-user.md
-
 
 ### Storage
 
@@ -103,19 +101,52 @@ The `mbx` templates are initialised and downloaded at
 The `mbx` environments, their configurations and VM disks are hosted at
 `/export/monkeybox/boxes/`.
 
+## Compatibility
+
+Host requirements:
+- Ubuntu 20.04 LTS (recommended) or CentOS 7
+- Recommended 32GB RAM with Intel VT-x or AMD-V enabled 4+cores CPU
+- Uninstall any other hypervisor software (such as VMware workstation, VirtualBox)
+
+Note: `mbx` has been tested and developed on Ubuntu 20.04 LTS
+
+Supported Management Server (Templates):
+- CentOS 7
+
+Supported Hypervisors (Templates):
+- CentOS7 KVM
+- VMware vSphere 6.7u3
+- VMware vSphere 7.0u1
+- XCP-ng 7.6
+- XCP-ng 8.2
+- XenServer 7.1 LSTR
+
+Tested CloudStack versions:
+- 4.14.0.0
+- 4.15.2.0
+- 4.16.0.0-SNAPSHOT (main branch)
+
+Note: legacy CloudStack releases older than v4.11 that don't have
+`cloudstack-marvin` package will not work.
+
+Refer to https://docs.cloudstack.apache.org for CloudStack version-specific
+hypervisor and distro compatibility matrix.
+
 ## Installation and Setup
 
-`mbx` has been tested against Ubuntu 20.04 LTS with KVM+QEMU 4.2 and NFS storage.
+`mbx` requires:
 
-We recommend at least 32GB RAM with x86_64 Intel VT-x or AMD-V enabled CPU on the
-workstation/host where `mbx` is used and uninstall any other hypervisors such as
-VirtualBox or VMware workstation.
+- NFS storage
+- QEMU/KVM for running nested VMs
+- Docker for building CloudStack packages: https://docs.docker.com/engine/install/ubuntu/
 
 Additional notes:
-- Default password for all the root user is `P@ssword123`.
-- `mbx` requires docker for building packages: https://docs.docker.com/engine/install/ubuntu/
+- Default password for all `mbx` templates for the root user is `P@ssword123`.
+- Default password for CloudStack `admin` user is `password`.
 
 ### Setup NFS Storage
+
+On Ubuntu:
 
     apt-get install nfs-kernel-server quota sshpass wget jq
     echo "/export  *(rw,async,no_root_squash,no_subtree_check)" > /etc/exports
@@ -127,28 +158,60 @@ Additional notes:
     sed -i -e 's/^RPCRQUOTADOPTS=$/RPCRQUOTADOPTS="-p 875"/g' /etc/default/quota
     service nfs-kernel-server restart
 
+On CentOS:
+
+    yum install -y epel-release
+    yum install nfs-utils sshpass wget jq
+    echo "/export  *(rw,async,no_root_squash,no_subtree_check)" > /etc/exports
+    mkdir -p /export/testing
+
+    # Add the following to /etc/sysconfig/nfs
+        LOCKD_TCPPORT=32803
+        LOCKD_UDPPORT=32769
+        MOUNTD_PORT=892
+        RQUOTAD_PORT=875
+        STATD_PORT=662
+        STATD_OUTGOING_PORT=2020
+
+    # Start NFS and rpcbind
+    systemctl enable --now rpcbind
+    systemctl enable --now nfs
+
+    # Disable/configure firewalld as necessary
+    systemctl disable --now firewalld
+
 ### Setup KVM
 
-    apt-get install qemu-kvm libvirt-daemon bridge-utils cpu-checker nfs-kernel-server quota
+On Ubuntu:
+
+    apt-get install qemu-kvm libvirt-daemon bridge-utils cpu-checker libnss-libvirt
     kvm-ok
 
-Fixing permissions for libvirt-qemu:
+On CentOS:
+
+    yum install bridge-utils net-tools ntp qemu-kvm qemu-img libvirt libvirt-daemon libvirt-daemon-driver-qemu libvirt-nss virt-install
+
+Fixing permissions for libvirt-qemu on Ubuntu (for non-root users):
 
     sudo getfacl -e /export
     sudo setfacl -m u:libvirt-qemu:rx /export
 
-Install Libvirt NSS for name resolution:
+Note: mbx depends on Libvirt NSS for name resolution
 
-    apt-get install libnss-libvirt
-
-Next, add the following so that `grep -w 'hosts:' /etc/nsswitch.conf` returns:
+Next, add the `libvirt libvirt_guest` in the nss config file, following so that `grep -w 'hosts:' /etc/nsswitch.conf` returns:
 
     files libvirt libvirt_guest dns mymachines
 
 Install `virt-manager`, the virtual machine manager graphical tool to manage VMs
-on your machine:
+on your machine.
+
+On Ubuntu:
 
     apt-get install virt-manager
+
+On CentOS:
+
+    yum install -y virt-manager
 
 ![VM Manager](doc/images/virt-manager.png)
 
@@ -194,16 +257,38 @@ NAT-enabled virtual network in 172.20.0.0/16.
 
 ### Create Storage Gold-Masters
 
+Note: This is required to be done only once for a specific version of CloudStack and
+is only required for CloudStack **4.15 or below**.
+
 After setting up NFS on the workstation host, you need to create a
 CloudStack-version specific storage golden master directory that contains two
 primary storage folders and a secondary storage folder with the systemvmtemplate for the
 specific version of CloudStack seeded. The storage golden master is used as
 storage source of an mbx environment during `mbx deploy` command execution.
 
-Note: This is required to be done only once for a specific version of CloudStack.
+For example, the following is needed only one-time for creating a golden master
+storage directory for CloudStack 4.14 version:
+
+    mkdir -p /export/testing
+    # Create directory layout for a specific ACS version under /export/testing
+    mkdir -p /export/testing/4.14/{primary1,primary2,secondary}
+    # Get the systemvm templates
+    cd /export/testing/4.14
+    wget http://packages.shapeblue.com/systemvmtemplate/4.14/systemvmtemplate-4.14.0-kvm.qcow2.bz2
+    wget http://packages.shapeblue.com/systemvmtemplate/4.14/systemvmtemplate-4.14.0-vmware.ova
+    wget http://packages.shapeblue.com/systemvmtemplate/4.14/systemvmtemplate-4.14.0-xen.vhd.bz2
+    wget http://packages.shapeblue.com/systemvmtemplate/4.14/md5sum.txt
+    # Check the downloaded templates, it should say OK for the three templates
+    md5sum --check md5sum.txt
+    # Seed template in the secondary folder for 4.14
+    /export/monkeybox/files/setup-systemvmtemplate.sh -m /export/testing/4.14/secondary -f systemvmtemplate-4.14.0-kvm.qcow2.bz2 -h kvm
+    /export/monkeybox/files/setup-systemvmtemplate.sh -m /export/testing/4.14/secondary -f systemvmtemplate-4.14.0-vmware.ova -h vmware
+    /export/monkeybox/files/setup-systemvmtemplate.sh -m /export/testing/4.14/secondary -f systemvmtemplate-4.14.0-xen.vhd.bz2 -h xenserver
+    # Cleanup downloaded files
+    rm -fv md5sum.txt systemvmtemplate*
 
 For example, the following is needed only one-time for creating a golden master
-storage directory for 4.15 version:
+storage directory for CloudStack 4.15 version:
 
     mkdir -p /export/testing
     # Create directory layout for a specific ACS version under /export/testing
@@ -284,8 +369,12 @@ More examples with specific repositories and custom storage source: (custom stor
 
 ## CloudStack Development
 
+Note: this is not for developers of 3rd party integration/feature that don't
+require changes in CloudStack, such developers should use a QA environment.
+
 This section covers how a developer can run management server and MySQL server
-locally to do local CloudStack development along side an IDE.
+locally to do development of CloudStack using `mbx` along side an IDE and other
+tools.
 
 For developer env, it is recommended that you run your favourite IDE such as
 IntelliJ IDEA, text-editors, your management server, MySQL server and NFS server
@@ -294,7 +383,7 @@ services can be accessible to VMs, KVM hosts etc. at your host IP `172.20.0.1`.
 
 To ssh into deployed VMs (with NSS configured), you can login by simply using:
 
-    $ mbx ssh <name of VM>
+    $ mbx ssh <name of VM or IP>
 
 Refer to hackerbook for up-to-date guidance on CloudStack development:
 https://github.com/shapeblue/hackerbook
