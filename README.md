@@ -12,6 +12,7 @@ Table of Contents
     * [Storage](#storage)
     * [Networking](#networking)
     * [Deployment](#deployment)
+* [Compatibility](#compatibility)
 * [Installation and Setup](#installation-and-setup)
     * [Setup NFS Storage](#setup-nfs-storage)
     * [Setup KVM](#setup-kvm)
@@ -100,17 +101,49 @@ The `mbx` templates are initialised and downloaded at
 The `mbx` environments, their configurations and VM disks are hosted at
 `/export/monkeybox/boxes/`.
 
+## Compatibility
+
+Host requirements:
+- Ubuntu 20.04 LTS (recommended)
+- CentOS 7
+- Recommended 32GB RAM with Intel VT-x or AMD-V enabled 4+cores CPU
+- Uninstall any other hypervisor software (such as VMware workstation, VirtualBox)
+
+Note: `mbx` has been tested and developed on Ubuntu 20.04 LTS
+
+Supported Management Server (Templates):
+- CentOS 7
+
+Supported Hypervisors (Templates):
+- CentOS7 KVM
+- VMware vSphere 6.7u3
+- VMware vSphere 7.0u1
+- XCP-ng 7.6
+- XCP-ng 8.2
+- XenServer 7.1 LSTR
+
+Tested CloudStack versions:
+- 4.14.0.0
+- 4.15.2.0
+- 4.16.0.0-SNAPSHOT (main branch)
+
+Note: legacy CloudStack releases older than v4.11 that don't have
+`cloudstack-marvin` package will not work.
+
+Refer to https://docs.cloudstack.apache.org for CloudStack version-specific
+hypervisor and distro compatibility matrix.
+
 ## Installation and Setup
 
-`mbx` has been tested against Ubuntu 20.04 LTS with KVM+QEMU 4.2 and NFS storage.
+`mbx` requires:
 
-We recommend at least 32GB RAM with x86_64 Intel VT-x or AMD-V enabled CPU on the
-workstation/host where `mbx` is used and uninstall any other hypervisors such as
-VirtualBox or VMware workstation.
+- NFS storage
+- QEMU/KVM for running nested VMs
+- Docker for building CloudStack packages: https://docs.docker.com/engine/install/ubuntu/
 
 Additional notes:
-- Default password for all the root user is `P@ssword123`.
-- `mbx` requires docker for building packages: https://docs.docker.com/engine/install/ubuntu/
+- Default password for all `mbx` templates for the root user is `P@ssword123`.
+- Default password for CloudStack `admin` user is `password`.
 
 ### Setup NFS Storage
 
