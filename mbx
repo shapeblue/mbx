@@ -54,7 +54,7 @@ init() {
   for template in $(cat $ROOT/templates/md5sum.txt | awk '{print $2}' | sed 's/.qcow2//g'); do
     virsh undefine mbxt-$template >/dev/null 2>/dev/null || true
     echo "Updating template: $template"
-    wget --show-progress -nc https://download.cloudstack.org/templates/mbx/$template.qcow2 -O $ROOT/templates/$template.qcow2 || true
+    wget -nc https://download.cloudstack.org/templates/mbx/$template.qcow2 -O $ROOT/templates/$template.qcow2 || true
     virsh define $ROOT/templates/xmls/mbxt-$template.xml >/dev/null
   done
   echo "Running md5 checksum checks on templates (this may take some time...)"
