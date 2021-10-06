@@ -156,11 +156,11 @@ check_mbxt() {
   fi
 }
 
-sshr() {
+issh() {
   sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" $@
 }
 
-scpr() {
+iscp() {
   sshpass -p 'P@ssword123' scp -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" $@
 }
 
@@ -171,7 +171,6 @@ deploy() {
   fi
 
   set -x
-
   id=
   for idx in {1..9}; do
     if ! grep -q qa$idx- $ROOT/boxes/boxes.list; then
@@ -370,27 +369,33 @@ deploy() {
 
 launch() {
   set -x
-  echo "Launching CloudStack Zone in the environment:"
   env=$1
   if [ -z $env ]; then
     echo "Please provide a valid env name, run 'mbx list' to find name of environments"
     exit 1
   fi
+  echo "Launching CloudStack Zone in the environment:"
   id=$(echo $env | sed 's/^qa//g' | sed 's/-.*$//g')
-  echo "Generating marvin config for env ID $id"
+  echo "Processing marvin config for env ID $id"
 
   msip=$(getent hosts $env-mgmt1 | awk '{ print $1 }')
-  sshpass -p 'P@ssword123' scp -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" $ROOT/boxes/$env/marvin.cfg root@$msip:/marvin/
-  sshpass -p 'P@ssword123' scp -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" $ROOT/files/smoketests.sh root@$msip:/marvin/
-  sshpass -p 'P@ssword123' scp -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" $ROOT/files/result.py root@$msip:/marvin/
+  iscp $ROOT/boxes/$env/marvin.cfg root@$msip:/marvin/
+  iscp $ROOT/files/smoketests.sh root@$msip:/marvin/
+  iscp $ROOT/files/result.py root@$msip:/marvin/
   while ! nc -vzw 5 $msip 8096 2>&1 > /dev/null; do echo "Waiting for management server to come up"; sleep 10; done
-  sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$msip systemctl start cloudstack-usage
-  sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$msip "mysql -u root --execute=\"UPDATE cloud.service_offering set ram_size=512 where vm_type='consoleproxy';\""
+  issh root@$msip systemctl start cloudstack-usage
+  issh root@$msip "mysql -u root --execute=\"UPDATE cloud.service_offering set ram_size=512 where vm_type='consoleproxy';\""
   echo "Management server is UP now, launching data center now"
 
-  # Deploy marvin datacenter (tried py2 first, and then py3)
-  sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$msip "python /usr/lib/python2.7/site-packages/marvin/deployDataCenter.py -i /marvin/marvin.cfg || python3 /usr/local/lib/python3.6/site-packages/marvin/deployDataCenter.py -i /marvin/marvin.cfg"
-  echo "Launched: http://$msip:8080/client"
+  version=$(curl -Ss http://$msip:8080/client/api 2>&1 | sed 's/.*version="//g' | sed 's/".*//g' | sed 's/-SNAPSHOT//g' | grep -Po '4.[\d]*')
+  if [[ $(echo $version | sed 's/4.//g') -gt 15 ]]; then
+    issh root@$msip "pip3 install /usr/share/cloudstack-marvin/Marvin*.tar.gz"
+    issh root@$msip "python3 /usr/local/lib/python3.6/site-packages/marvin/deployDataCenter.py -i /marvin/marvin.cfg"
+  else
+    issh root@$msip "pip2 install /usr/share/cloudstack-marvin/Marvin*.tar.gz"
+    issh root@$msip "python /usr/lib/python2.7/site-packages/marvin/deployDataCenter.py -i /marvin/marvin.cfg"
+  fi
+  echo "Launched data center: http://$msip:8080/client"
 }
 
 test() {
