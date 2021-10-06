@@ -286,7 +286,7 @@ deploy() {
       fi
       if [[ "$box" == "$env-host2" ]]; then
         iscp $ROOT/files/xenfix.sh root@$box:/root/
-        issh -o "ServerAliveInterval 2" root@$box "bash -x /root/xenfix.sh" || true
+        sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" -o "ServerAliveInterval 2" root@$box "bash -x /root/xenfix.sh" || true
       fi
     fi
   done
@@ -644,6 +644,7 @@ destroy() {
     virsh undefine $vm;
   done
   sed -i "/$env/d" $ROOT/boxes/boxes.list
+  sync
   rm -fr $ROOT/boxes/$env
   sudo rm -fr /export/testing/$env
 }
