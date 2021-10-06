@@ -10,7 +10,6 @@
   <features>
     <acpi/>
     <apic/>
-    <vmport state='off'/>
   </features>
   <cpu mode='host-passthrough' check='none'/>
   <clock offset='utc'>
@@ -60,9 +59,6 @@
     </controller>
     <controller type='virtio-serial' index='0'>
       <address type='pci' domain='0x0000' bus='0x00' slot='0x06' function='0x0'/>
-    </controller>
-    <controller type='scsi' index='0' model='lsilogic'>
-      <address type='pci' domain='0x0000' bus='0x00' slot='0x08' function='0x0'/>
     </controller>
     <interface type='network'>
       <mac address='52:54:00:73:b3:9d'/>

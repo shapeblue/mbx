@@ -10,7 +10,6 @@
   <features>
     <acpi/>
     <apic/>
-    <vmport state='off'/>
   </features>
   <cpu mode='host-passthrough' check='none'/>
   <clock offset='utc'>
