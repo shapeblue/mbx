@@ -660,9 +660,9 @@ destroy() {
     virsh destroy $vm 2> /dev/null || true;
     virsh undefine $vm;
   done
-  sync
   sed -i "/$env/d" $ROOT/boxes/boxes.list
   rm -fr $ROOT/boxes/$env
+  sync
   sudo rm -fr /export/testing/$env
 }
 
