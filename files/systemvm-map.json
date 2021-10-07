@@ -1,0 +1,86 @@
+{
+    "4.9": {
+        "kvm": {
+          "url": "https://download.cloudstack.org/systemvm/4.6/dnsmasq/systemvm64template-4.6-kvm.qcow2.bz2",
+          "checksum": "c713c00fcca7e01f089a1962237e1cd8"
+         },
+        "xen": {
+          "url": "https://download.cloudstack.org/systemvm/4.6/dnsmasq/systemvm64template-4.6-xen.vhd.bz2",
+          "checksum": "80c072799ac094fddfb8cba9bd0305e9"
+        },
+        "vmw": {
+          "url": "https://download.cloudstack.org/systemvm/4.6/dnsmasq/systemvm64template-4.6-vmware.ova",
+          "checksum": "d91212b6c96b98bfd1559ef2cc2891e1"
+        }
+    },
+    "4.11": {
+        "kvm": {
+          "url": "https://download.cloudstack.org/systemvm/4.11/systemvmtemplate-4.11.3-kvm.qcow2.bz2",
+          "checksum": "d40bce40b2d5bb4ba73e56d1e95aeae5"
+         },
+        "xen": {
+          "url": "https://download.cloudstack.org/systemvm/4.11/systemvmtemplate-4.11.3-xen.vhd.bz2",
+          "checksum": "1566dcbcc3806755d0012d1619bd4210"
+        },
+        "vmw": {
+          "url": "https://download.cloudstack.org/systemvm/4.11/systemvmtemplate-4.11.3-vmware.ova",
+          "checksum": "d695376be20929d323adfaa5410c093f"
+        }
+    },
+    "4.12": {
+        "kvm": {
+          "url": "https://download.cloudstack.org/systemvm/4.11/systemvmtemplate-4.11.3-kvm.qcow2.bz2",
+          "checksum": "d40bce40b2d5bb4ba73e56d1e95aeae5"
+         },
+        "xen": {
+          "url": "https://download.cloudstack.org/systemvm/4.11/systemvmtemplate-4.11.3-xen.vhd.bz2",
+          "checksum": "1566dcbcc3806755d0012d1619bd4210"
+        },
+        "vmw": {
+          "url": "https://download.cloudstack.org/systemvm/4.11/systemvmtemplate-4.11.3-vmware.ova",
+          "checksum": "d695376be20929d323adfaa5410c093f"
+        }
+    },
+    "4.13": {
+        "kvm": {
+          "url": "https://download.cloudstack.org/systemvm/4.11/systemvmtemplate-4.11.3-kvm.qcow2.bz2",
+          "checksum": "d40bce40b2d5bb4ba73e56d1e95aeae5"
+         },
+        "xen": {
+          "url": "https://download.cloudstack.org/systemvm/4.11/systemvmtemplate-4.11.3-xen.vhd.bz2",
+          "checksum": "1566dcbcc3806755d0012d1619bd4210"
+        },
+        "vmw": {
+          "url": "https://download.cloudstack.org/systemvm/4.11/systemvmtemplate-4.11.3-vmware.ova",
+          "checksum": "d695376be20929d323adfaa5410c093f"
+        }
+    },
+    "4.14": {
+        "kvm": {
+          "url": "https://download.cloudstack.org/systemvm/4.14/systemvmtemplate-4.14.0-kvm.qcow2.bz2",
+          "checksum": "4978e6e6140d167556f201496549a498"
+         },
+        "xen": {
+          "url": "https://download.cloudstack.org/systemvm/4.14/systemvmtemplate-4.14.0-xen.vhd.bz2",
+          "checksum": "2e3078de2ccce760d537e06fd9b4c7c7"
+        },
+        "vmw": {
+          "url": "https://download.cloudstack.org/systemvm/4.14/systemvmtemplate-4.14.0-vmware.ova",
+          "checksum": "33cad72f858aef11c95df486b0f21938"
+        }
+    },
+    "4.15": {
+        "kvm": {
+          "url": "https://download.cloudstack.org/systemvm/4.15/systemvmtemplate-4.15.1-kvm.qcow2.bz2",
+          "checksum": "0e9f9a7d0957c3e0a2088e41b2da2cec"
+         },
+        "xen": {
+          "url": "https://download.cloudstack.org/systemvm/4.15/systemvmtemplate-4.15.1-xen.vhd.bz2",
+          "checksum": "86373992740b1eca8aff8b08ebf3aea5"
+        },
+        "vmw": {
+          "url": "https://download.cloudstack.org/systemvm/4.15/systemvmtemplate-4.15.1-vmware.ova",
+          "checksum": "4006982765846d373eb3719b2fe4d720"
+        }
+    }
+}

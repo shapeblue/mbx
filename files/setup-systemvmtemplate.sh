@@ -36,6 +36,9 @@ failed() {
   fi
   if [[ $returnval -eq 0 ]]; then
     return 0
+  elif [[ -n "(echo $returnmsg | grep "already")" ]]; then
+    echo $returnmsg
+    exit 0
   else
     echo "Installation failed"
     exit $returnval
