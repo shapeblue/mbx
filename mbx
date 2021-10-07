@@ -28,10 +28,10 @@ usage() {
   echo "   init: initialises monkeynet and mbx templates"
   echo "   package: builds packages from a git repo and sha/tag/branch"
   echo "   list: lists available environments"
-  echo "   deploy: deploys QA env with two monkeybox VMs and creates marvin cfg file"
+  echo "   deploy: creates QA env with two monkeybox VMs and creates marvin cfg file"
   echo "   launch: launches QA env zone using environment's marvin cfg file"
   echo "   test: start marvin tests"
-  echo "   dev: deploys dev env with a single monkeybox VM and creates marvin cfg file"
+  echo "   dev: creates dev env with a single monkeybox VM and creates marvin cfg file"
   echo "   agentscp: updates KVM agent in dev environment using scp and restarts it"
   echo "   ssh: ssh into a mbx VM"
   echo "   stop: stop all env VMs"
@@ -164,67 +164,29 @@ iscp() {
   sshpass -p 'P@ssword123' scp -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" $@
 }
 
-seed_template() {
-  sec_store_path=$1/secondary/
-  template_name=$2
-  hypervisor=$3
-  script="sudo /export/monkeybox/files/setup-systemvmtemplate.sh -m $sec_store_path -f $1/$template_name -h $hypervisor"
-  output=$(eval $script)
-  if [ ! -n "$(echo "$output" | grep "Success")" ] && [ -n "$(echo "$output" | grep "failed")" ] ; then
-    echo "Failed to seed the template. Please try again."
+seed_systemvmtemplate() {
+  version=$1
+  hypervisor=$2
+  sstore_path=$3
+  cache_path=/export/monkeybox/templates/cache/$version/$hypervisor
+  url=$(cat $ROOT/files/systemvm-map.json | jq -r ".[\"${version}\"].${hypervisor}.url")
+  checksum=$(cat $ROOT/files/systemvm-map.json | jq -r ".[\"${version}\"].${hypervisor}.checksum")
+  template_path=$cache_path/${url##*/}
+  mkdir -p $cache_path
+  wget -nc $url -O $template_path || true
+  if [[ "$(md5sum $template_path | awk '{print $1}')" != "$checksum" ]]; then
+    rm -f $template_path
+    echo "The systemvmtemplate cache is invalid, removed old cache, please re-run launch command"
     exit 1
   fi
-}
-
-setup_storage() {
-  acs_version=$1
-  local hypervisor=$2
-  ver=$(echo "${acs_version//./}")
-  stg_path="/export/testing"
-  basepath=${stg_path}/${acs_version}
-  sudo mkdir -p ${basepath}/{primary1,primary2,secondary}
-  chksum_url=$(cat ./files/hyp-os-map.json | jq -r .cs${ver}.md5sum)
-  if [ ! -f ${basepath}/md5sum.txt ]; then
-    sudo wget --show-progress -nc $chksum_url -O ${basepath}/md5sum.txt
+  echo "Seeding v$version systemvmtemplate for '$hypervisor' at $sstore_path"
+  if [[ "$hypervisor" == "xen" || "$hypervisor" == "xcp" ]]; then
+    hypervisor="xenserver"
   fi
-
-  if [ ! -f ${basepath}/md5sum.txt ]; then
-    echo "Failed to download md5sum file. Please try to download it manually"
-    exit 1
+  if [[ "$hypervisor" == "vmw" ]]; then
+    hypervisor="vmware"
   fi
-
-  if [[ "$hypervisor" == "kvm" ]]; then
-    template_url=$(cat $ROOT/files/hyp-os-map.json | jq -r .cs${ver}.kvm)
-    hypv="kvm"
-  elif [[ "$hypervisor" == "vmw" ]]; then
-    template_url=$(cat $ROOT/files/hyp-os-map.json | jq -r .cs${ver}.vmware)
-    hypv="vmware"
-  elif [[ "$hypervisor" == "xen" ]] || [[ "$hypervisor" == "xcp" ]]; then
-    template_url=$(cat $ROOT/files/hyp-os-map.json | jq -r .cs${ver}.xs)
-    hypv="xenserver"
-  else
-    echo "Failed to get the template URL for the specified hypervisor. Please check if the hypervisor type is supported"
-    exit 1
-  fi
-
-  template_name=${template_url##*/}
-  if [ ! -f ${basepath}/${template_name} ]; then
-    sudo wget --show-progress -nc $template_url -O ${basepath}/${template_name}
-    cd $basepath
-    file_cnt=$(ls | wc -l)
-    tmp_cnt=$(( file_cnt - 4 ))
-    md5sumchk=$(sudo md5sum --check ${basepath}/md5sum.txt --ignore-missing)
-    temps_validated=$(echo "$md5sumchk" | wc -l )
-    # validate if the number of templates present in the storage directory  
-    # corresponds to the number of validations performed by 'md5sum --check'
-    if [ "$temps_validated" -lt "$tmp_cnt" ] || [[ -n "$(echo $md5sumchk | grep "FAILED")" ]]; then
-      echo "Failed to download required template(s) or checksum validation failed. Exiting..."
-      exit 1
-    fi
-  fi
-  echo "Seeding template"
-  seed_template $basepath $template_name $hypv
-  cd -
+  sudo /export/monkeybox/files/setup-systemvmtemplate.sh -m $sstore_path -f $template_path -h $hypervisor -F
 }
 
 deploy() {
@@ -235,7 +197,7 @@ deploy() {
 
   set -x
   id=
-  for idx in {1..9}; do
+  for idx in {1..20}; do
     if ! grep -q qa$idx- $ROOT/boxes/boxes.list; then
       id=$idx
       break
@@ -287,7 +249,7 @@ deploy() {
     virsh setmaxmem $env-host2 8G --config
   fi
 
-  echo "Starting cloned mbx VMs"
+  echo "Starting VMs"
   for domain in $(cat $ROOT/boxes/$env/list); do virsh start $domain; done;
 
   echo "Creating primary and secondary storage folders"
@@ -295,7 +257,7 @@ deploy() {
   sync
 
   echo "Waiting for hosts to boot"
-  sleep 30
+  sleep 60
   for box in $(cat $ROOT/boxes/$env/list); do
     echo "Configuring host $box"
     ip=$(getent hosts $box | awk '{ print $1 }')
@@ -395,6 +357,7 @@ deploy() {
   if [[ $hypervisor == "xcp" ]]; then
     hypervisor="xen"
   fi
+  echo $hypervisor > $ROOT/boxes/$env/hypervisor
 
   # Find VC IP
   export vcip=
@@ -450,6 +413,13 @@ launch() {
     issh root@$msip "pip3 install /usr/share/cloudstack-marvin/Marvin*.tar.gz"
     issh root@$msip "python3 /usr/local/lib/python3.6/site-packages/marvin/deployDataCenter.py -i /marvin/marvin.cfg"
   else
+    if echo "4.9 4.11 4.12 4.13 4.14 4.15" | grep -w $version > /dev/null; then
+      hypervisor=$(cat $ROOT/boxes/$env/hypervisor)
+      seed_systemvmtemplate $version $hypervisor /export/testing/$env/secondary
+    else
+        echo "Unsupported ACS version $version, please manually seed the systemvmtemplate and deploy the zone"
+        exit 1
+    fi
     issh root@$msip "pip2 install /usr/share/cloudstack-marvin/Marvin*.tar.gz"
     issh root@$msip "python /usr/lib/python2.7/site-packages/marvin/deployDataCenter.py -i /marvin/marvin.cfg"
   fi
