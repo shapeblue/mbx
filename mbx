@@ -54,7 +54,7 @@ init() {
   for template in $(cat $ROOT/templates/md5sum.txt | awk '{print $2}' | sed 's/.qcow2//g'); do
     virsh undefine mbxt-$template >/dev/null 2>/dev/null || true
     echo "Updating template: $template"
-    wget --show-progress -nc https://download.cloudstack.org/templates/mbx/$template.qcow2 -O $ROOT/templates/$template.qcow2 || true
+    wget -nc https://download.cloudstack.org/templates/mbx/$template.qcow2 -O $ROOT/templates/$template.qcow2 || true
     virsh define $ROOT/templates/xmls/mbxt-$template.xml >/dev/null
   done
   echo "Running md5 checksum checks on templates (this may take some time...)"
@@ -353,7 +353,7 @@ deploy() {
       fi
       if [[ "$box" == "$env-host2" ]]; then
         iscp $ROOT/files/xenfix.sh root@$box:/root/
-        issh -o "ServerAliveInterval 2" root@$box "bash -x /root/xenfix.sh" || true
+        sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" -o "ServerAliveInterval 2" root@$box "bash -x /root/xenfix.sh" || true
       fi
     fi
   done
@@ -671,11 +671,6 @@ agentscp() {
   echo "[acs agent] Copied all files, KVM agent restarted!"
 }
 
-sshp() {
-  echo "Trying ssh with root@$1 with password 'P@ssword123'"
-  issh root@$1
-}
-
 stop() {
   env=$1
   if [ -z "$env" ]; then
@@ -710,6 +705,7 @@ destroy() {
     virsh destroy $vm 2> /dev/null || true;
     virsh undefine $vm;
   done
+  sync
   sed -i "/$env/d" $ROOT/boxes/boxes.list
   rm -fr $ROOT/boxes/$env
   sudo rm -fr /export/testing/$env
@@ -726,7 +722,7 @@ case "$1" in
     test) test;;
     dev) dev ${@:2};;
     agentscp) agentscp ${@:2};;
-    ssh) sshp $2;;
+    ssh) issh root@$2;;
     start) start $2;;
     stop) stop $2;;
     destroy) destroy $2;;

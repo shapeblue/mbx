@@ -11,7 +11,6 @@
   <features>
     <acpi/>
     <apic/>
-    <vmport state='off'/>
   </features>
   <cpu mode='host-passthrough' check='partial'/>
   <clock offset='utc'>
@@ -27,7 +26,6 @@
     <suspend-to-disk enabled='no'/>
   </pm>
   <devices>
-    <emulator>/usr/bin/qemu-system-x86_64</emulator>
     <disk type='file' device='disk'>
       <driver name='qemu' type='qcow2'/>
       <source file='/export/monkeybox/templates/xcpng76.qcow2'/>
