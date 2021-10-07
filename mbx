@@ -387,7 +387,8 @@ deploy() {
   fi
 
   envsubst < $ROOT/marvin/$hypervisor.cfg > $ROOT/boxes/$env/marvin.cfg
-  echo "VMs deployed and marvin config generated, to launch zone run 'mbx launch $env'"
+  echo "VMs deployed and marvin config generated, to launch zone run:"
+  echo "  mbx launch $env"
 }
 
 launch() {
@@ -424,7 +425,7 @@ launch() {
     issh root@$msip "pip2 install /usr/share/cloudstack-marvin/Marvin*.tar.gz"
     issh root@$msip "python /usr/lib/python2.7/site-packages/marvin/deployDataCenter.py -i /marvin/marvin.cfg"
   fi
-  echo "Launched data center: http://$msip:8080/client"
+  echo "Launched zone: http://$msip:8080/client"
 }
 
 test() {
