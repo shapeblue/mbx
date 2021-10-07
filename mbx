@@ -157,11 +157,11 @@ check_mbxt() {
 }
 
 issh() {
-  sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" $@
+  sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" -o "LogLevel=ERROR" $@
 }
 
 iscp() {
-  sshpass -p 'P@ssword123' scp -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" $@
+  sshpass -p 'P@ssword123' scp -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" -o "LogLevel=ERROR" $@
 }
 
 seed_systemvmtemplate() {
@@ -195,7 +195,6 @@ deploy() {
     exit 0
   fi
 
-  set -x
   id=
   for idx in {1..20}; do
     if ! grep -q qa$idx- $ROOT/boxes/boxes.list; then
@@ -256,7 +255,7 @@ deploy() {
   sudo mkdir -p /export/testing/$env/{primary1,primary2,secondary}
   sync
 
-  echo "Waiting for hosts to boot"
+  echo "Waiting for hosts to boot... (this can take a few minutes)"
   sleep 60
   for box in $(cat $ROOT/boxes/$env/list); do
     echo "Configuring host $box"
@@ -389,7 +388,6 @@ deploy() {
 }
 
 launch() {
-  set -x
   env=$1
   if [ -z $env ]; then
     echo "Please provide a valid env name, run 'mbx list' to find name of environments"
@@ -403,7 +401,7 @@ launch() {
   iscp $ROOT/boxes/$env/marvin.cfg root@$msip:/marvin/
   iscp $ROOT/files/smoketests.sh root@$msip:/marvin/
   iscp $ROOT/files/result.py root@$msip:/marvin/
-  while ! nc -vzw 5 $msip 8096 2>&1 > /dev/null; do echo "Waiting for management server to come up"; sleep 10; done
+  while ! nc -vzw 5 $msip 8096 2>&1 > /dev/null; do echo "Waiting for management server to come up..."; sleep 10; done
   issh root@$msip systemctl start cloudstack-usage
   issh root@$msip "mysql -u root --execute=\"UPDATE cloud.service_offering set ram_size=512 where vm_type='consoleproxy';\""
   echo "Management server is UP now, launching data center now"

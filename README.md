@@ -17,7 +17,6 @@ Table of Contents
     * [Setup NFS Storage](#setup-nfs-storage)
     * [Setup KVM](#setup-kvm)
     * [Setup mbx](#setup-mbx)
-    * [Create Storage Gold-Masters](#create-storage-gold-masters)
 * [Using mbx](#using-mbx)
 * [CloudStack Development](#cloudstack-development)
     * [Install Development Tools](#install-development-tools)
@@ -40,7 +39,9 @@ nested guest VMs and virtual router are plugged in nested-virtual networks that
 run in a nested KVM host VM.
 
 To learn more about CloudStack as a user, you may read:
+
 https://github.com/shapeblue/hackerbook/blob/main/0-init.md
+
 https://github.com/shapeblue/hackerbook/blob/main/1-user.md
 
 ### Storage
@@ -48,13 +49,13 @@ https://github.com/shapeblue/hackerbook/blob/main/1-user.md
 `mbx` requires NFS storage to be setup and exported for the base path
 `/export/testing` for environment-specific primary and secondary storages.
 
-A typical `mbx` environment deployment makes copy of a CloudStack
-version-specific gold-master directory that generally contains two empty primary
-storage directories (`primary1` and `primary2`) and one secondary storage
-directory (`secondary`). The secondary storage directory must be seeded
-with CloudStack version-specific `systemvmtemplates`. The `systemvmtemplate` is
-then used to create system VMs such as the Secondary-Storage VM, Console-Proxy
-VM and Virtual Router in an `mbx` environment.
+A typical `mbx` environment upon deployment creates two primary storage
+directories (`primary1` and `primary2`) and one secondary storage directory
+(`secondary`). The secondary storage directory is seeded with supported
+CloudStack version-specific `systemvmtemplates` if necessary when the env is
+launched using `mbx launch`. The seeded `systemvmtemplate` is then used to
+create system VMs such as the Secondary-Storage VM, Console-Proxy VM and Virtual
+Router in an `mbx` environment.
 
 ### Networking
 
@@ -125,6 +126,8 @@ Tested CloudStack versions:
 - 4.14.0.0
 - 4.15.2.0
 - 4.16.0.0-SNAPSHOT (main branch)
+
+Supported CloudStack versions: 4.9, 4.11, 4.12, 4.13, 4.14, 4.15 and later
 
 Note: legacy CloudStack releases older than v4.11 that don't have
 `cloudstack-marvin` package will not work.
@@ -255,59 +258,6 @@ NAT-enabled virtual network in 172.20.0.0/16.
 
     Your workstation/host IP address is `172.20.0.1`.
 
-### Create Storage Gold-Masters
-
-Note: This is required to be done only once for a specific version of CloudStack and
-is only required for CloudStack **4.15 or below**.
-
-After setting up NFS on the workstation host, you need to create a
-CloudStack-version specific storage golden master directory that contains two
-primary storage folders and a secondary storage folder with the systemvmtemplate for the
-specific version of CloudStack seeded. The storage golden master is used as
-storage source of an mbx environment during `mbx deploy` command execution.
-
-For example, the following is needed only one-time for creating a golden master
-storage directory for CloudStack 4.14 version:
-
-    mkdir -p /export/testing
-    # Create directory layout for a specific ACS version under /export/testing
-    mkdir -p /export/testing/4.14/{primary1,primary2,secondary}
-    # Get the systemvm templates
-    cd /export/testing/4.14
-    wget http://packages.shapeblue.com/systemvmtemplate/4.14/systemvmtemplate-4.14.0-kvm.qcow2.bz2
-    wget http://packages.shapeblue.com/systemvmtemplate/4.14/systemvmtemplate-4.14.0-vmware.ova
-    wget http://packages.shapeblue.com/systemvmtemplate/4.14/systemvmtemplate-4.14.0-xen.vhd.bz2
-    wget http://packages.shapeblue.com/systemvmtemplate/4.14/md5sum.txt
-    # Check the downloaded templates, it should say OK for the three templates
-    md5sum --check md5sum.txt
-    # Seed template in the secondary folder for 4.14
-    /export/monkeybox/files/setup-systemvmtemplate.sh -m /export/testing/4.14/secondary -f systemvmtemplate-4.14.0-kvm.qcow2.bz2 -h kvm
-    /export/monkeybox/files/setup-systemvmtemplate.sh -m /export/testing/4.14/secondary -f systemvmtemplate-4.14.0-vmware.ova -h vmware
-    /export/monkeybox/files/setup-systemvmtemplate.sh -m /export/testing/4.14/secondary -f systemvmtemplate-4.14.0-xen.vhd.bz2 -h xenserver
-    # Cleanup downloaded files
-    rm -fv md5sum.txt systemvmtemplate*
-
-For example, the following is needed only one-time for creating a golden master
-storage directory for CloudStack 4.15 version:
-
-    mkdir -p /export/testing
-    # Create directory layout for a specific ACS version under /export/testing
-    mkdir -p /export/testing/4.15/{primary1,primary2,secondary}
-    # Get the systemvm templates
-    cd /export/testing/4.15
-    wget http://packages.shapeblue.com/systemvmtemplate/4.15/systemvmtemplate-4.15.1-kvm.qcow2.bz2
-    wget http://packages.shapeblue.com/systemvmtemplate/4.15/systemvmtemplate-4.15.1-vmware.ova
-    wget http://packages.shapeblue.com/systemvmtemplate/4.15/systemvmtemplate-4.15.1-xen.vhd.bz2
-    wget http://packages.shapeblue.com/systemvmtemplate/4.15/md5sum.txt
-    # Check the downloaded templates, it should say OK for the three templates
-    md5sum --check md5sum.txt
-    # Seed template in the secondary folder for 4.15
-    /export/monkeybox/files/setup-systemvmtemplate.sh -m /export/testing/4.15/secondary -f systemvmtemplate-4.15.1-kvm.qcow2.bz2 -h kvm
-    /export/monkeybox/files/setup-systemvmtemplate.sh -m /export/testing/4.15/secondary -f systemvmtemplate-4.15.1-vmware.ova -h vmware
-    /export/monkeybox/files/setup-systemvmtemplate.sh -m /export/testing/4.15/secondary -f systemvmtemplate-4.15.1-xen.vhd.bz2 -h xenserver
-    # Cleanup downloaded files
-    rm -fv md5sum.txt systemvmtemplate*
-
 ## Using `mbx`
 
 The `mbx` tool can be used to build CloudStack packages, deploy dev or QA
@@ -315,22 +265,22 @@ environments with KVM, VMware, XenServer and XCP-ng hypervisors, and run
 smoketests on them.
 
     $ mbx
-    MonkeyBox 🐵 v0.1
+    MonkeyBox 🐵 v0.2
     Available commands are:
       init: initialises monkeynet and mbx templates
       package: builds packages from a git repo and sha/tag/branch
       list: lists available environments
-      deploy: deploys QA env with two monkeybox VMs, configures storage, creates marvin cfg file
+      deploy: creates QA env with two monkeybox VMs and creates marvin cfg file
       launch: launches QA env zone using environment's marvin cfg file
       test: start marvin tests
-      dev: deploys dev env with a single monkeybox VM, configures storage, creates marvin cfg file
+      dev: creates dev env with a single monkeybox VM and creates marvin cfg file
       agentscp: updates KVM agent in dev environment using scp and restarts it
       ssh: ssh into a mbx VM
       stop: stop all env VMs
       start: start all env VMs
       destroy: destroy environment
 
-0. On first run, initialise networking and templates, run:
+0. On first run or when upgrading `mbx`, please run:
 
     mbx init
 
@@ -340,7 +290,7 @@ smoketests on them.
 
 2. To deploy an environment, run:
 
-    mbx deploy <name of env, default: mbxe> <mgmt server template, default: mbxt-kvm-centos7> <hypervisor template, default: mbxt-kvm-centos7> <repo, default: http://packages.shapeblue.com/cloudstack/upstream/centos7/4.15> <storage source, default: /export/testing/4.15>
+    mbx deploy <name of env, default: mbxe> <mgmt server template, default: mbxt-kvm-centos7> <hypervisor template, default: mbxt-kvm-centos7> <repo, default: http://packages.shapeblue.com/cloudstack/upstream/centos7/4.15>
 
 Example to deploy test matrix (kvm, vmware, xenserver) environments:
 
@@ -348,9 +298,9 @@ Example to deploy test matrix (kvm, vmware, xenserver) environments:
     mbx deploy 415-venv mbxt-kvm-centos7 mbxt-vmware67u3  # deploys 4.15 + VMware67u3 env
     mbx deploy 415-xenv mbxt-kvm-centos7 mbxt-xenserver71 # deploys 4.15 + XenServer71 env
 
-More examples with specific repositories and custom storage source: (custom storage source must exist)
+More examples with custom packages repositories:
 
-    mbx deploy 416-snapshot mbxt-kvm-centos7 mbxt-kvm-centos7 http://download.cloudstack.org/testing/nightly/latest/centos7/4.16 /export/testing/4.16.0
+    mbx deploy 416-snapshot mbxt-kvm-centos7 mbxt-kvm-centos7 https://download.cloudstack.org/centos/7/4.15/
 
 3. Once `mbx` environment is deployed, to launch a zone run:
 
@@ -360,7 +310,7 @@ More examples with specific repositories and custom storage source: (custom stor
 
     mbx list # find your environment
     mbx ssh <name of the mbx VM>
-    cd /marvin # here you'll find smoketests.sh to run smoketests
+    cd /marvin
     bash -x smoketests.sh
 
 5. To destroy your mbx environment, run:
