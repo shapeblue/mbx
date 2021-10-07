@@ -21,17 +21,17 @@ ROOT="$( cd "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )"
 mkdir -p $ROOT/boxes
 touch $ROOT/boxes/boxes.list
 export LIBVIRT_DEFAULT_URI="qemu:///system"
-echo MonkeyBox 🐵 v0.1
+echo MonkeyBox 🐵 v0.2
 
 usage() {
   echo "Available commands are:"
   echo "   init: initialises monkeynet and mbx templates"
   echo "   package: builds packages from a git repo and sha/tag/branch"
   echo "   list: lists available environments"
-  echo "   deploy: deploys QA env with two monkeybox VMs, configures storage, creates marvin cfg file"
+  echo "   deploy: deploys QA env with two monkeybox VMs and creates marvin cfg file"
   echo "   launch: launches QA env zone using environment's marvin cfg file"
   echo "   test: start marvin tests"
-  echo "   dev: deploys dev env with a single monkeybox VM, configures storage, creates marvin cfg file"
+  echo "   dev: deploys dev env with a single monkeybox VM and creates marvin cfg file"
   echo "   agentscp: updates KVM agent in dev environment using scp and restarts it"
   echo "   ssh: ssh into a mbx VM"
   echo "   stop: stop all env VMs"
@@ -229,7 +229,7 @@ setup_storage() {
 
 deploy() {
   if [[ "$1" == "-h" ]]; then
-    echo "Usage: mbx deploy <name of env> <mgmt server template> <hypervisor template> <repo>"
+    echo "Usage: mbx deploy <name of env> <mgmt server template> <hypervisor template> <repo url>"
     exit 0
   fi
 
@@ -246,31 +246,24 @@ deploy() {
     exit 1
   fi
 
-  name=${1:-"mbxe"}
+  name=${1:-"mbx-cs415"}
   mst=${2:-"mbxt-kvm-centos7"}
   hyt=${3:-"mbxt-kvm-centos7"}
-  # Validate input templates
+  # Validate templates
   check_mbxt mgmt $mst
   check_mbxt hypervisor $hyt
-
   hypervisor=$(echo $hyt |  awk '{print substr($0,6,3)}')
   repo=${4:-"http://packages.shapeblue.com/cloudstack/upstream/centos7/4.15"}
+
   uuid=$(cat /proc/sys/kernel/random/uuid | sed 's/-.*//g')
   env="qa$id-$name-$uuid-$hypervisor"
 
   echo -e "Building env with name: \033[4m$env\033[0m"
   echo "Management server template: $mst"
   echo "Hypervisor template: $hyt"
-  echo "Repository: $repo"
-
-  repo=${repo%/}
-  acs_version=${repo##*/}
-  os=${hyt##*-}
-  storage="/export/testing/"${acs_version}
-  setup_storage $acs_version $hypervisor
+  echo "Package repo: $repo"
 
   mkdir -p $ROOT/boxes/$env
-  # Save env name
   echo $env >> $ROOT/boxes/boxes.list
 
   # Clone mgmt server
@@ -294,16 +287,14 @@ deploy() {
     virsh setmaxmem $env-host2 8G --config
   fi
 
-  echo "Starting VMs"
+  echo "Starting cloned mbx VMs"
   for domain in $(cat $ROOT/boxes/$env/list); do virsh start $domain; done;
 
-  echo "Copying primary and secondary storages"
-  env_storage="/export/testing/$env/"
-  sudo cp -vr $storage $env_storage
+  echo "Creating primary and secondary storage folders"
+  sudo mkdir -p /export/testing/$env/{primary1,primary2,secondary}
   sync
-  echo "Primary and secondary storages are ready"
 
-  echo "Initialising environment hosts"
+  echo "Waiting for hosts to boot"
   sleep 30
   for box in $(cat $ROOT/boxes/$env/list); do
     echo "Configuring host $box"
@@ -477,7 +468,7 @@ test() {
 
 dev() {
   if [[ "$1" == "-h" ]]; then
-    echo "Usage: mbx dev <name of env> <hypervisor template> <storage source>"
+    echo "Usage: mbx dev <name of env> <hypervisor template>"
     exit 0
   fi
 
@@ -500,12 +491,10 @@ dev() {
   check_mbxt hypervisor $hyt
 
   hypervisor=$(echo $hyt |  awk '{print substr($0,6,3)}')
-  storage=${3:-"/export/testing/4.15"}
   env="dev$id-$name-$hypervisor"
 
   echo -e "Building dev env with name: \033[4m$env\033[0m"
   echo "Hypervisor template: $hyt"
-  echo "Storage source: $storage"
 
   mkdir -p $ROOT/boxes/$env
   # Save env name
@@ -522,13 +511,11 @@ dev() {
   echo "Starting VMs"
   for domain in $(cat $ROOT/boxes/$env/list); do virsh start $domain; done;
 
-  echo "Copying primary and secondary storages"
-  env_storage="/export/testing/$env/"
-  sudo cp -vr $storage $env_storage
+  echo "Creating primary and secondary storage folders"
+  sudo mkdir -p /export/testing/$env/{primary1,primary2,secondary}
   sync
-  echo "Primary and secondary storages are ready"
 
-  echo "Initialising dev hosts"
+  echo "Waiting for dev host to boot"
   sleep 60
   for box in $(cat $ROOT/boxes/$env/list); do
     echo "Configuring host $box"
