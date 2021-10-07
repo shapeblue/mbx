@@ -137,6 +137,8 @@ hypervisor and distro compatibility matrix.
 
 ## Installation and Setup
 
+Video: https://shapeblue-engineering-videos.s3.eu-west-1.amazonaws.com/mbx/mbx-installation.mp4
+
 `mbx` requires:
 
 - NFS storage
@@ -260,6 +262,8 @@ NAT-enabled virtual network in 172.20.0.0/16.
 
 ## Using `mbx`
 
+Video: https://shapeblue-engineering-videos.s3.eu-west-1.amazonaws.com/mbx/mbx-usage-demo.mp4
+
 The `mbx` tool can be used to build CloudStack packages, deploy dev or QA
 environments with KVM, VMware, XenServer and XCP-ng hypervisors, and run
 smoketests on them.
@@ -300,7 +304,7 @@ Example to deploy test matrix (kvm, vmware, xenserver) environments:
 
 More examples with custom packages repositories:
 
-    mbx deploy 416-snapshot mbxt-kvm-centos7 mbxt-kvm-centos7 https://download.cloudstack.org/centos/7/4.15/
+    mbx deploy cs415-kvm mbxt-kvm-centos7 mbxt-kvm-centos7 https://download.cloudstack.org/centos/7/4.15/
 
 3. Once `mbx` environment is deployed, to launch a zone run:
 
