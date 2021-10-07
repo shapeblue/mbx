@@ -59,6 +59,9 @@ init() {
   done
   echo "Running md5 checksum checks on templates (this may take some time...)"
   (cd $ROOT/templates && md5sum --check md5sum.txt)
+  sudo cp $ROOT/files/libvhd.so.1.0 /usr/lib64/
+  sudo ldconfig
+  sudo cp $ROOT/files/vhd-util /usr/bin/
 }
 
 list() {
