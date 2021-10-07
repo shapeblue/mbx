@@ -1,3 +1,4 @@
 boxes/boxes.list
 boxes/**
 templates/*.qcow2
+templates/cache/*
