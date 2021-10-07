@@ -127,7 +127,7 @@ Tested CloudStack versions:
 - 4.15.2.0
 - 4.16.0.0-SNAPSHOT (main branch)
 
-Supported CloudStack versions: 4.9, 4.11, 4.12, 4.13, 4.14, 4.15 and later
+Supported CloudStack versions: 4.11, 4.12, 4.13, 4.14, 4.15 and later
 
 Note: legacy CloudStack releases older than v4.11 that don't have
 `cloudstack-marvin` package will not work.

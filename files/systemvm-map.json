@@ -1,18 +1,4 @@
 {
-    "4.9": {
-        "kvm": {
-          "url": "https://download.cloudstack.org/systemvm/4.6/dnsmasq/systemvm64template-4.6-kvm.qcow2.bz2",
-          "checksum": "c713c00fcca7e01f089a1962237e1cd8"
-         },
-        "xen": {
-          "url": "https://download.cloudstack.org/systemvm/4.6/dnsmasq/systemvm64template-4.6-xen.vhd.bz2",
-          "checksum": "80c072799ac094fddfb8cba9bd0305e9"
-        },
-        "vmw": {
-          "url": "https://download.cloudstack.org/systemvm/4.6/dnsmasq/systemvm64template-4.6-vmware.ova",
-          "checksum": "d91212b6c96b98bfd1559ef2cc2891e1"
-        }
-    },
     "4.11": {
         "kvm": {
           "url": "https://download.cloudstack.org/systemvm/4.11/systemvmtemplate-4.11.3-kvm.qcow2.bz2",
