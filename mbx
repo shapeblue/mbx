@@ -612,7 +612,7 @@ sshp() {
 stop() {
   envs=( "$@" )
   if [ ${#envs[@]} == 0 ]; then
-    echo "Usage: mbx stop <env name>. Please pass a name, run 'mbx list' for list of available envs."
+    echo "Usage: mbx stop <env names>. Please pass a name, run 'mbx list' for list of available envs."
     return
   fi
   sync
@@ -627,7 +627,7 @@ stop() {
 start() {
   envs=( "$@" )
   if [ ${#envs[@]} == 0 ]; then
-    echo "Usage: mbx start <env name>. Please pass a name, run 'mbx list' for list of available envs."
+    echo "Usage: mbx start <env names>. Please pass a name, run 'mbx list' for list of available envs."
     return
   fi
   for env in "${envs[@]}"; do
@@ -640,7 +640,7 @@ start() {
 destroy() {
   envs=( "$@" )
   if [ ${#envs[@]} == 0 ]; then
-    echo "Usage: mbx destroy <env name>. Please pass a name, run 'mbx list' for list of available envs."
+    echo "Usage: mbx destroy <env names>. Please pass a name, run 'mbx list' for list of available envs."
     return
   fi
   for env in "${envs[@]}"; do
