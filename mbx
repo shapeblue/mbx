@@ -610,43 +610,49 @@ sshp() {
 }
 
 stop() {
-  env=$1
-  if [ -z "$env" ]; then
+  envs=( "$@" )
+  if [ ${#envs[@]} == 0 ]; then
     echo "Usage: mbx stop <env name>. Please pass a name, run 'mbx list' for list of available envs."
     return
   fi
   sync
-  for vm in $(cat $ROOT/boxes/$env/list); do
-    sync
-    virsh destroy $vm 2>/dev/null || true
+  for env in "${envs[@]}"; do
+    for vm in $(cat $ROOT/boxes/$env/list); do
+      sync
+      virsh destroy $vm 2>/dev/null || true
+    done
   done
 }
 
 start() {
-  env=$1
-  if [ -z "$env" ]; then
+  envs=( "$@" )
+  if [ ${#envs[@]} == 0 ]; then
     echo "Usage: mbx start <env name>. Please pass a name, run 'mbx list' for list of available envs."
     return
   fi
-  for vm in $(cat $ROOT/boxes/$env/list); do
-    virsh start $vm 2>/dev/null || true;
+  for env in "${envs[@]}"; do
+    for vm in $(cat $ROOT/boxes/$env/list); do
+      virsh start $vm 2>/dev/null || true;
+    done
   done
 }
 
 destroy() {
-  env=$1
-  if [ -z "$env" ]; then
+  envs=( "$@" )
+  if [ ${#envs[@]} == 0 ]; then
     echo "Usage: mbx destroy <env name>. Please pass a name, run 'mbx list' for list of available envs."
     return
   fi
-  for vm in $(cat $ROOT/boxes/$env/list); do
-    virsh destroy $vm 2> /dev/null || true;
-    virsh undefine $vm;
+  for env in "${envs[@]}"; do
+    for vm in $(cat $ROOT/boxes/$env/list); do
+      virsh destroy $vm 2> /dev/null || true;
+      virsh undefine $vm;
+    done
+    sed -i "/$env/d" $ROOT/boxes/boxes.list
+    sync
+    rm -fr $ROOT/boxes/$env
+    sudo rm -fr /export/testing/$env
   done
-  sed -i "/$env/d" $ROOT/boxes/boxes.list
-  sync
-  rm -fr $ROOT/boxes/$env
-  sudo rm -fr /export/testing/$env
 }
 
 case "$1" in
@@ -661,8 +667,8 @@ case "$1" in
     dev) dev ${@:2};;
     agentscp) agentscp ${@:2};;
     ssh) sshp $2;;
-    start) start $2;;
-    stop) stop $2;;
-    destroy) destroy $2;;
+    start) start ${@:2};;
+    stop) stop ${@:2};;
+    destroy) destroy ${@:2};;
     *) usage;;
 esac
