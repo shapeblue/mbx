@@ -321,6 +321,12 @@ More examples with custom packages repositories:
 
     mbx destroy <name of the env, see mbx list for env name>
 
+Note: to use `qemu-ev` on EL7/8 KVM hosts, after deploying an environment you
+can run the following on KVM hosts (before launching the zone):
+
+    yum install centos-release-qemu-ev
+    yum install qemu-kvm-ev
+
 ## CloudStack Development
 
 Note: this is not for developers of 3rd party integration/feature that don't
