@@ -7,4 +7,6 @@
       <range start='172.20.0.50' end='172.20.0.254'/>
     </dhcp>
   </ip>
+  <ip family='ipv6' address='fd17:ac56:1234:1::' prefix='48'>
+  </ip>
 </network>
