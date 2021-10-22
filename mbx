@@ -339,13 +339,19 @@ deploy() {
 
   # Setup KVM hosts
   if [[ $hypervisor == "kvm" ]]; then
-    # Fix CentOS7 repo
+    # Fix EL7 repo
     issh root@$env-host1 "sed -i '/^baseurl=.*/d' /etc/yum.repos.d/cloudstack.repo && echo baseurl=$repo >> /etc/yum.repos.d/cloudstack.repo"
     issh root@$env-host1 yum install -y cloudstack-agent
-    issh root@$env-host1 "echo host.reserved.mem.mb=512 >> /etc/cloudstack/agent/agent.properties"
-    # Fix CentOS7 repo
+    # Fix EL7 repo
     issh root@$env-host2 "sed -i '/^baseurl=.*/d' /etc/yum.repos.d/cloudstack.repo && echo baseurl=$repo >> /etc/yum.repos.d/cloudstack.repo"
     issh root@$env-host2 yum install -y cloudstack-agent
+    # Install qemu-kvm-ev on EL7
+    if [[ "$hyt" == ""mbxt-kvm-centos7 ]]; then
+      issh root@$env-host1 "yum install -y centos-release-qemu-ev && yum install -y qemu-kvm-ev"
+      issh root@$env-host2 "yum install -y centos-release-qemu-ev && yum install -y qemu-kvm-ev"
+    fi
+    # Fix host reserved memory
+    issh root@$env-host1 "echo host.reserved.mem.mb=512 >> /etc/cloudstack/agent/agent.properties"
     issh root@$env-host2 "echo host.reserved.mem.mb=512 >> /etc/cloudstack/agent/agent.properties"
   fi
 
