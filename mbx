@@ -50,6 +50,8 @@ init() {
     echo "'monkeynet' network is already defined, skipped re-initialisation";
   else
     enable_ipv6
+    virsh net-destroy monkeynet 2>/dev/null || true
+    virsh net-undefine monkeynet 2>/dev/null || true
     virsh net-define $ROOT/monkeynet.xml
     virsh net-autostart monkeynet
     virsh net-start monkeynet

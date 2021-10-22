@@ -232,8 +232,9 @@ On CentOS:
     # Initialise `mbx` by opening in another shell:
     mbx init
 
-The `mbx init` is idempotent and can be used to update templates and domain xml
-definitions.
+The `mbx init` should be run on first install and on upgrade which will update
+templates and domain xmls. When mbx init is executed on upgrade, ensure no mbx
+VMs are running.
 
 The `mbx init` command initialises the `monkeynet` network. You can check and confirm the
 network using:
