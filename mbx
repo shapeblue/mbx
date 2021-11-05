@@ -100,7 +100,7 @@ list() {
 
 package() {
   if [[ "$1" == "-h" ]]; then
-    echo "Usage: mbx package <repo url> <tag|sha|branch name|pr number> <option distro: centos6/7/8/debian>"
+    echo "Usage: mbx package <repo url> <tag|sha|branch name|pr number> <option distro: centos7/centos8/debian>"
     exit 0
   fi
 
@@ -130,10 +130,9 @@ package() {
 
   # TODO: Build all simultaniously
   case "$distro" in
-    centos6) image_name="bhaisaab/centos6-cloudstack-slave";;
-    centos7) image_name="bhaisaab/centos7-cloudstack-slave";;
-    centos8) image_name="bhaisaab/centos8-cloudstack-slave";;
-    debian) image_name="bhaisaab/ubuntu-cloudstack-slave";;
+    centos7) image_name="shapeblue/centos7-cloudstack-builder";;
+    centos8) image_name="shapeblue/centos7-cloudstack-builder";;
+    debian) image_name="shapeblue/ubuntu-cloudstack-builder";;
     *) echo "Unknown distro" && exit 1;;
   esac
 
@@ -144,7 +143,7 @@ package() {
   uuid=`uuid`
   container_name="builder-$uuid"
 
-  sudo rm -rf $output_dir
+  rm -rf $output_dir || true
 
   docker run -d -v $packaging_dir:/jenkins -v $output_dir:/output  --name $container_name $image_name /usr/sbin/sshd -D -p 22
   builder_ip=`docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' $container_name `
@@ -157,7 +156,7 @@ package() {
 
   docker kill $container_name
   docker rm $container_name
-  sudo rm -rf $packaging_dir
+  rm -rf $packaging_dir || true
 }
 
 check_mbxt() {

@@ -328,6 +328,38 @@ can run the following on KVM hosts (before launching the zone):
     yum install centos-release-qemu-ev
     yum install qemu-kvm-ev
 
+### Using mbx with multiple machines
+
+The easiest way is to setup wireguard:
+
+    sudo apt-get install wireguard resolvconf
+    wg genkey | sudo tee /etc/wireguard/private.key
+    sudo cat /etc/wireguard/private.key | wg pubkey | sudo tee /etc/wireguard/public.key
+
+    cat /etc/wireguard/wg0.conf
+    [Interface]
+    PrivateKey = <your base64_encoded_private_key_goes_here>
+    Address = 10.8.0.1/24
+    ListenPort = 51820
+    SaveConfig = true
+
+Note: you'll need to allow/enable port 51820/udp.
+
+You may need forwarding enabled if you're connecting to a peer WireGuard server,
+add the following to /etc/sysctl.conf:
+
+    net.ipv4.ip_forward=1
+
+And then run:
+
+    sysctl -p
+
+Finally enable the server:
+
+    sudo systemctl enable wg-quick@wg0.service
+    sudo systemctl start wg-quick@wg0.service
+    sudo systemctl status wg-quick@wg0.service
+
 ## CloudStack Development
 
 Note: this is not for developers of 3rd party integration/feature that don't
