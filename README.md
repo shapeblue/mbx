@@ -153,7 +153,7 @@ Additional notes:
 
 On Ubuntu:
 
-    apt-get install nfs-kernel-server quota sshpass wget jq
+    apt-get install nfs-kernel-server quota sshpass wget jq bc
     echo "/export  *(rw,async,no_root_squash,no_subtree_check)" > /etc/exports
     mkdir -p /export/testing
     exportfs -a
@@ -166,7 +166,7 @@ On Ubuntu:
 On CentOS:
 
     yum install -y epel-release
-    yum install nfs-utils sshpass wget jq
+    yum install nfs-utils sshpass wget jq bc
     echo "/export  *(rw,async,no_root_squash,no_subtree_check)" > /etc/exports
     mkdir -p /export/testing
 
