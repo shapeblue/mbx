@@ -189,7 +189,7 @@ On CentOS:
 
 On Ubuntu:
 
-    apt-get install qemu-kvm libvirt-daemon bridge-utils cpu-checker libnss-libvirt
+    apt-get install qemu-kvm libvirt-daemon bridge-utils cpu-checker libnss-libvirt sysfsutils
     kvm-ok
 
 On CentOS:
@@ -206,6 +206,11 @@ Note: mbx depends on Libvirt NSS for name resolution
 Next, add the `libvirt libvirt_guest` in the nss config file, following so that `grep -w 'hosts:' /etc/nsswitch.conf` returns:
 
     files libvirt libvirt_guest dns mymachines
+
+Allow non-root users to add tap interfaces to a bridge:
+
+    sudo chmod u+s /usr/lib/qemu/qemu-bridge-helper
+    sudo bash -c 'mkdir -p /etc/qemu && echo "allow virbr0" >>/etc/qemu/bridge.conf && echo "allow virbr1" >>/etc/qemu/bridge.conf'
 
 Install `virt-manager`, the virtual machine manager graphical tool to manage VMs
 on your machine.
