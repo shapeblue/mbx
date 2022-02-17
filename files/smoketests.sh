@@ -35,6 +35,6 @@ fi
 
 for file in $FILES; do
   echo "Starting test: $file"
-  nosetests-2.7 --with-xunit --xunit-file=$LOGDIR/$(basename $file).xml --with-marvin --marvin-config=marvin.cfg -s -a tags=advanced $file
+  nosetests-3.4 --with-xunit --xunit-file=$LOGDIR/$(basename $file).xml --with-marvin --marvin-config=marvin.cfg -s -a tags=advanced $file
 done
 

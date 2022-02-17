@@ -125,9 +125,10 @@ Supported Hypervisors (Templates):
 Tested CloudStack versions:
 - 4.14.0.0
 - 4.15.2.0
-- 4.16.0.0-SNAPSHOT (main branch)
+- 4.16.0.0
 
-Supported CloudStack versions: 4.11, 4.12, 4.13, 4.14, 4.15 and later
+Env deployment supported CloudStack versions: 4.11 or later
+Smoketests supported CloudStack versions: 4.16 or later
 
 Note: legacy CloudStack releases older than v4.11 that don't have
 `cloudstack-marvin` package will not work.
