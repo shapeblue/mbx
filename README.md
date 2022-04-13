@@ -143,7 +143,7 @@ Video: https://shapeblue-engineering-videos.s3.eu-west-1.amazonaws.com/mbx/mbx-i
 `mbx` requires:
 
 - NFS storage
-- QEMU/KVM for running nested VMs
+- (Baremetal) QEMU/KVM host for running nested VMs (Ubuntu and CentOS have been tested)
 - Docker for building CloudStack packages: https://docs.docker.com/engine/install/ubuntu/
 
 Additional notes:
