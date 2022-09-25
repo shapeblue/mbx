@@ -85,7 +85,7 @@ def parse_reports(file_path_list):
                 tests.append([name, status, time, filename])
 
     for test in tests:
-        print(f"{test[0]} | {test[1]} | {float(test[2]):.2f} | {test[3]}")
+        print("%s | %s | %s | %s" % (test[0], test[1], test[2], test[3]))
     print("")
     return exit_code
 

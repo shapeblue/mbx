@@ -19,6 +19,9 @@
 TESTDIR="/marvin/tests/smoke"
 LOGDIR="/marvin/log"
 
+# Remove tests that can't run
+rm -fv $TESTDIR/{test_hostha_simulator.py,test_kubernetes_clusters.py,test_outofbandmanagement_nestedplugin.py,test_outofbandmanagement.py,test_hostha_kvm.py}
+
 mkdir -p $LOGDIR
 
 NUMTESTS=`find $TESTDIR/test_*.py | wc -l`
