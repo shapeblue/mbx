@@ -39,17 +39,11 @@ usage() {
   echo "   destroy: destroy environment"
 }
 
-enable_ipv6() {
-  gw=$(ip -4 route show default | awk '{print $5}')
-  sudo sysctl -w net.ipv6.conf.${gw}.accept_ra=2
-}
-
 init() {
   if virsh net-list --all --name | grep -q monkeynet;
   then
     echo "'monkeynet' network is already defined, skipped re-initialisation";
   else
-    enable_ipv6
     virsh net-destroy monkeynet 2>/dev/null || true
     virsh net-undefine monkeynet 2>/dev/null || true
     virsh net-define $ROOT/monkeynet.xml
@@ -224,7 +218,7 @@ deploy() {
   check_mbxt mgmt $mst
   check_mbxt hypervisor $hyt
   hypervisor=$(echo $hyt |  awk '{print substr($0,6,3)}')
-  repo=${4:-"http://packages.shapeblue.com/cloudstack/upstream/centos7/4.15"}
+  repo=${4:-"http://packages.shapeblue.com/cloudstack/upstream/centos7/4.17"}
 
   uuid=$(cat /proc/sys/kernel/random/uuid | sed 's/-.*//g')
   env="qa$id-$name-$uuid-$hypervisor"
@@ -236,9 +230,6 @@ deploy() {
 
   mkdir -p $ROOT/boxes/$env
   echo $env >> $ROOT/boxes/boxes.list
-
-  # ipv6 fix
-  enable_ipv6
 
   # Clone mgmt server
   virt-clone --original $mst --name $env-mgmt1 --file $ROOT/boxes/$env/$env-mgmt1.qcow2

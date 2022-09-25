@@ -1,6 +1,6 @@
-Cmnd_Alias CLOUDSTACK = /bin/mkdir, /bin/mount, /bin/umount, /bin/cp, /bin/chmod, /usr/bin/keytool, /bin/keytool, /usr/bin/virsh, /usr/sbin/ldconfig, /usr/sbin/sysctl, /usr/bin/rm -fr /export/testing/*, /export/monkeybox/files/setup-systemvmtemplate.sh
+Cmnd_Alias MBX = /bin/mkdir, /bin/mount, /bin/umount, /bin/cp, /bin/chmod, /usr/bin/keytool, /bin/keytool, /usr/bin/virsh, /usr/sbin/ldconfig, /usr/sbin/sysctl, /usr/bin/rm -fr /export/testing/*, /export/monkeybox/files/setup-systemvmtemplate.sh
 
 Defaults:%sudo !requiretty
 
-%sudo   ALL=(root) NOPASSWD:CLOUDSTACK
+%sudo   ALL=(root) NOPASSWD:MBX
 
