@@ -220,13 +220,16 @@ Next, add the `libvirt libvirt_guest` in the nss config file, following so that 
 
     files libvirt libvirt_guest dns mymachines
 
-Allow non-root users to add tap interfaces to a bridge: (only perhaps on Ubuntu)
+For Ubuntu, allow non-root users to add tap interfaces to a bridge:
 
     sudo chmod u+s /usr/lib/qemu/qemu-bridge-helper
     sudo bash -c 'mkdir -p /etc/qemu && echo "allow virbr0" >>/etc/qemu/bridge.conf && echo "allow virbr1" >>/etc/qemu/bridge.conf'
+    
+For EL8/Rocky Linux, do this:
 
-Install `virt-manager`, the virtual machine manager graphical tool to manage VMs
-on your machine.
+    sudo bash -c 'mkdir -p /etc/qemu-kvm && echo "allow virbr0" >> /etc/qemu-kvm/bridge.conf && echo "allow virbr1" >> /etc/qemu-kvm/bridge.conf'
+
+Install `virt-manager`, the virtual machine manager graphical tool to manage VMs on your machine.
 
 On Ubuntu:
 
@@ -257,7 +260,7 @@ VMs are running.
 The `mbx init` command initialises the `monkeynet` network. You can check and confirm the
 network using:
 
-    $ virsh net-list
+    $ virsh net-list --all
     Name                 State      Autostart     Persistent
     ----------------------------------------------------------
     default              active     yes           yes
@@ -313,17 +316,17 @@ smoketests on them.
 
 2. To deploy an environment, run:
 
-    mbx deploy <name of env, default: mbxe> <mgmt server template, default: mbxt-kvm-centos7> <hypervisor template, default: mbxt-kvm-centos7> <repo, default: http://packages.shapeblue.com/cloudstack/upstream/centos7/4.15>
+    mbx deploy <name of env, default: mbxe> <mgmt server template, default: mbxt-kvm-centos7> <hypervisor template, default: mbxt-kvm-centos7> <repo, default: http://packages.shapeblue.com/cloudstack/upstream/centos7/4.17>
 
 Example to deploy test matrix (kvm, vmware, xenserver) environments:
 
-    mbx deploy 415-kenv mbxt-kvm-centos7 mbxt-kvm-centos7 # deploys 4.15 + KVM CentOS7 env
-    mbx deploy 415-venv mbxt-kvm-centos7 mbxt-vmware67u3  # deploys 4.15 + VMware67u3 env
-    mbx deploy 415-xenv mbxt-kvm-centos7 mbxt-xenserver71 # deploys 4.15 + XenServer71 env
+    mbx deploy 417-kenv mbxt-kvm-centos7 mbxt-kvm-centos7 # deploys 4.17 + KVM CentOS7 env
+    mbx deploy 417-venv mbxt-kvm-centos7 mbxt-vmware67u3  # deploys 4.17 + VMware67u3 env
+    mbx deploy 417-xenv mbxt-kvm-centos7 mbxt-xenserver71 # deploys 4.17 + XenServer71 env
 
 More examples with custom packages repositories:
 
-    mbx deploy cs415-kvm mbxt-kvm-centos7 mbxt-kvm-centos7 https://download.cloudstack.org/centos/7/4.15/
+    mbx deploy cs415-kvm mbxt-kvm-centos7 mbxt-kvm-centos7 http://download.cloudstack.org/centos/7/4.17/
 
 3. Once `mbx` environment is deployed, to launch a zone run:
 
@@ -340,7 +343,7 @@ More examples with custom packages repositories:
 
     mbx destroy <name of the env, see mbx list for env name>
 
-Note: to use `qemu-ev` on EL7/8 KVM hosts, after deploying an environment you
+Note: to use `qemu-ev` on EL7 KVM hosts, after deploying an environment you
 can run the following on KVM hosts (before launching the zone):
 
     yum install centos-release-qemu-ev
