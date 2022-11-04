@@ -1,4 +1,4 @@
-Cmnd_Alias MBX = /bin/mkdir, /bin/mount, /bin/umount, /bin/cp, /bin/chmod, /usr/bin/keytool, /bin/keytool, /usr/bin/virsh, /usr/sbin/ldconfig, /usr/sbin/sysctl, /usr/bin/rm -fr /export/testing/*, /export/monkeybox/files/setup-systemvmtemplate.sh
+Cmnd_Alias MBX = /usr/bin/mkdir, /bin/mkdir, /usr/bin/mkdir, /bin/mount, /usr/bin/umount, /bin/umount, /usr/bin/cp, /bin/cp, /usr/bin/chmod, /bin/chmod, /usr/bin/keytool, /bin/keytool, /usr/bin/virsh, /usr/sbin/ldconfig, /usr/sbin/sysctl, /usr/bin/rm -fr /export/testing/*, /export/monkeybox/files/setup-systemvmtemplate.sh
 
 Defaults:%sudo !requiretty
 
