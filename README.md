@@ -115,17 +115,17 @@ Supported Management Server (Templates):
 - CentOS 7
 
 Supported Hypervisors (Templates):
-- CentOS7 KVM
+- CentOS 7 KVM
 - VMware vSphere 6.7u3
-- VMware vSphere 7.0u1
-- XCP-ng 7.6
+- VMware vSphere 7.0u1 (partially working)
 - XCP-ng 8.2
+- XCP-ng 7.6
 - XenServer 7.1 LSTR
 
 Tested CloudStack versions:
-- 4.14.0.0
 - 4.15.2.0
 - 4.16.0.0
+- 4.17.0.0
 
 Env deployment supported CloudStack versions: 4.11 or later
 Smoketests supported CloudStack versions: 4.16 or later
@@ -216,7 +216,7 @@ On EL8/Rocky Linux, add polkit rule to allow non-root users to use virsh (replac
 
 Note: mbx depends on Libvirt NSS for name resolution
 
-Next, add the `libvirt libvirt_guest` in the nss config file, following so that `grep -w 'hosts:' /etc/nsswitch.conf` returns:
+Next, add the `libvirt libvirt_guest` in the nss config file, following so that `grep -w 'hosts:' /etc/nsswitch.conf` returns: (note: ensure the same order as below)
 
     files libvirt libvirt_guest dns mymachines
 
@@ -224,7 +224,7 @@ For Ubuntu, allow non-root users to add tap interfaces to a bridge:
 
     sudo chmod u+s /usr/lib/qemu/qemu-bridge-helper
     sudo bash -c 'mkdir -p /etc/qemu && echo "allow virbr0" >>/etc/qemu/bridge.conf && echo "allow virbr1" >>/etc/qemu/bridge.conf'
-    
+
 For EL8/Rocky Linux, do this:
 
     sudo bash -c 'mkdir -p /etc/qemu-kvm && echo "allow virbr0" >> /etc/qemu-kvm/bridge.conf && echo "allow virbr1" >> /etc/qemu-kvm/bridge.conf'
@@ -291,7 +291,7 @@ environments with KVM, VMware, XenServer and XCP-ng hypervisors, and run
 smoketests on them.
 
     $ mbx
-    MonkeyBox 🐵 v0.2
+    MonkeyBox 🐵 v0.3
     Available commands are:
       init: initialises monkeynet and mbx templates
       package: builds packages from a git repo and sha/tag/branch
@@ -326,7 +326,7 @@ Example to deploy test matrix (kvm, vmware, xenserver) environments:
 
 More examples with custom packages repositories:
 
-    mbx deploy cs415-kvm mbxt-kvm-centos7 mbxt-kvm-centos7 http://download.cloudstack.org/centos/7/4.17/
+    mbx deploy cs417-kvm mbxt-kvm-centos7 mbxt-kvm-centos7 http://download.cloudstack.org/centos/7/4.17/
 
 3. Once `mbx` environment is deployed, to launch a zone run:
 
@@ -335,7 +335,7 @@ More examples with custom packages repositories:
 4. To run smoketests, run:
 
     mbx list # find your environment
-    mbx ssh <name of the mbx VM>
+    mbx ssh <name of the mbx mgmt server VM>
     cd /marvin
     bash -x smoketests.sh
 
@@ -354,7 +354,7 @@ can run the following on KVM hosts (before launching the zone):
 This section is only for mbx users who want to access their mbx environments remotely.
 For this we suggest setting up wireguard VPN.
 
-To setup wireguard on Ubuntu: (note replace LIBVIRT_PRT with the chain name that libvirt uses for NAT rules)
+To setup wireguard on Ubuntu: (note replace `LIBVIRT_PRT` with the chain name that libvirt uses for NAT rules)
 
     sudo apt-get install wireguard resolvconf
     wg genkey | sudo tee /etc/wireguard/private.key
@@ -395,20 +395,29 @@ Finally enable the server:
 Note: this is not for developers of 3rd party integration/feature that don't
 require changes in CloudStack, such developers should use a QA environment.
 
-This section covers how a developer can run management server and MySQL server
-locally to do development of CloudStack using `mbx` along side an IDE and other
-tools.
+This section covers how a CloudStack developer can run management server and
+MySQL server locally to do development of CloudStack using `mbx` dev boxes along
+side an IDE and other tools.
 
 For developer env, it is recommended that you run your favourite IDE such as
 IntelliJ IDEA, text-editors, your management server, MySQL server and NFS server
 (secondary and primary storages) on your workstation (not in a VM) where these
 services can be accessible to VMs, KVM hosts etc. at your host IP `172.20.0.1`.
 
-To ssh into deployed VMs (with NSS configured), you can login by simply using:
+To deploy a dev env, you can run `mbx dev <name of env> <hypervisor template>`.
+For example:
 
-    $ mbx ssh <name of VM or IP>
+    $ mbx dev some-feature mbxt-kvm-centos7
 
-Refer to hackerbook for up-to-date guidance on CloudStack development:
+The above will deploy a single hypervisor host and generate a marvin config file
+that you can use to deploy a zone.
+
+To ssh into deployed hypervisor VM (with NSS configured), you can login by
+simply using:
+
+    $ mbx ssh <name of the dev VM or IP>
+
+Refer to hackerbook for up-to-date guidance on learning CloudStack development:
 https://github.com/shapeblue/hackerbook
 
 ### Install Development Tools
@@ -458,7 +467,8 @@ After installing nfs server, configure the exports:
 Beware: For Dev env, before deploying a zone on your monkeybox environment, make
 sure to seed the correct systemvmtemplate applicable for your branch. In your
 cloned CloudStack git repository you can use the `cloud-install-sys-tmplt` to
-seed the systemvmtemplate.
+seed the systemvmtemplate. Also note this may or may not be necessary depending
+on your development base branch.
 
 The following is an example to setup `4.15` systemvmtemplate which you should
 run after deploying the CloudStack db: (please use CloudStack branch/version specific
@@ -475,7 +485,7 @@ systemvmtemplate)
 It's assumed that the directory structure is something like:
 
         /
-        ├── $home/lab/cloudstack
+        ├── $HOME/lab/cloudstack
         └── /export/monkeybox
 
 Fork the repository at: github.com/apache/cloudstack, or get the code:
@@ -554,61 +564,3 @@ address:port and put breakpoints (and watches) as applicable.
 Report issues on https://github.com/shapeblue/mbx/issues
 
 Send a pull request on https://github.com/shapeblue/mbx
-
-## Troubleshooting
-
-### iptables
-
-Should your datacenter deployment fail due to the KVM host unable to reach your management server, it might be due to iptable rules.
-
-If you see this in your hosts agent.log:
-
-    java.net.NoRouteToHostException: No route to host
-            at sun.nio.ch.Net.connect0(Native Method)
-            at sun.nio.ch.Net.connect(Net.java:454)
-            at sun.nio.ch.Net.connect(Net.java:446)
-            at sun.nio.ch.SocketChannelImpl.connect(SocketChannelImpl.java:648)
-            at com.cloud.utils.nio.NioClient.init(NioClient.java:56)
-            at com.cloud.utils.nio.NioConnection.start(NioConnection.java:95)
-            at com.cloud.agent.Agent.start(Agent.java:263)
-            at com.cloud.agent.AgentShell.launchAgent(AgentShell.java:410)
-            at com.cloud.agent.AgentShell.launchAgentFromClassInfo(AgentShell.java:378)
-            at com.cloud.agent.AgentShell.launchAgent(AgentShell.java:362)
-            at com.cloud.agent.AgentShell.start(AgentShell.java:467)
-            at com.cloud.agent.AgentShell.main(AgentShell.java:502)
-
-And a telnet from host to management server on port gives this result:
-
-    $ telnet 172.20.0.1 8250
-    Trying 172.20.0.1...
-    telnet: connect to address 172.20.0.1: No route to host
-
-Clearing your iptables and setting new rules should take care of the issue. (Tested on Ubuntu 17.10)
-
-Run the following commands as su or with sudo powers.
-
-Backup and then flush your rules and delete any user-defined chains:
-
-    $ iptables -t nat -F && iptables -t nat -X
-    $ iptables -t filter -F && iptables -t filter -X
-
-Add new rules by running the two scripts located in docs/scripts to set up new nat and filter rules,
-ensuring that the network name (virbr1) in filter.table matches your management server IP:
-
-    $ bash -x <script>
-
-Alternatively, add each rule separately.
-
-Finally, save your iptables.
-
-Ubuntu:
-
-    iptables-save
-
-and if using iptables-persistent:
-
-    service iptables-persistent save
-
-CentOS 6 and older (CentOS 7 uses FirewallD by default):
-
-    service iptables save
