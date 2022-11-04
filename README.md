@@ -354,18 +354,24 @@ can run the following on KVM hosts (before launching the zone):
 This section is only for mbx users who want to access their mbx environments remotely.
 For this we suggest setting up wireguard VPN.
 
-To setup wireguard on Ubuntu:
+To setup wireguard on Ubuntu: (note replace LIBVIRT_PRT with the chain name that libvirt uses for NAT rules)
 
     sudo apt-get install wireguard resolvconf
     wg genkey | sudo tee /etc/wireguard/private.key
     sudo cat /etc/wireguard/private.key | wg pubkey | sudo tee /etc/wireguard/public.key
 
-    cat /etc/wireguard/wg0.conf
+    # cat /etc/wireguard/wg0.conf
     [Interface]
     PrivateKey = <your base64_encoded_private_key_goes_here>
-    Address = 10.8.0.1/24
+    Address = 10.6.0.1/24
+    PostUp = iptables -I FORWARD -i wg0 -j ACCEPT; iptables -t nat -I LIBVIRT_PRT -o cloudbr0 -j MASQUERADE
+    PostDown = iptables -D FORWARD -i wg0 -j ACCEPT; iptables -t nat -D LIBVIRT_PRT -o cloudbr0 -j MASQUERADE
+    #MTU = 1420
     ListenPort = 51820
     SaveConfig = true
+
+    [Peer]
+    <... add rest of the peer config here...>
 
 Note: you'll need to allow/enable port 51820/udp.
 
