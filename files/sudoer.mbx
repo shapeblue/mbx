@@ -2,5 +2,6 @@ Cmnd_Alias MBX = /usr/bin/mkdir, /bin/mkdir, /usr/bin/mkdir, /bin/mount, /usr/bi
 
 Defaults:%sudo !requiretty
 
+%wheel  ALL=(root) NOPASSWD:MBX
 %sudo   ALL=(root) NOPASSWD:MBX
 
