@@ -155,7 +155,7 @@ Additional notes:
 On Ubuntu:
 
     apt-get install nfs-kernel-server quota sshpass wget jq bc
-    echo "/export  *(rw,async,no_root_squash,no_subtree_check)" > /etc/exports
+    echo "/export  *(rw,sync,no_root_squash,no_subtree_check)" > /etc/exports
     mkdir -p /export/testing
     exportfs -a
     sed -i -e 's/^RPCMOUNTDOPTS="--manage-gids"$/RPCMOUNTDOPTS="-p 892 --manage-gids"/g' /etc/default/nfs-kernel-server
@@ -164,24 +164,24 @@ On Ubuntu:
     sed -i -e 's/^RPCRQUOTADOPTS=$/RPCRQUOTADOPTS="-p 875"/g' /etc/default/quota
     service nfs-kernel-server restart
 
-On CentOS:
+On EL8 (Rocky Linux 8):
 
-    yum install -y epel-release
-    yum install nfs-utils sshpass wget jq bc
-    echo "/export  *(rw,async,no_root_squash,no_subtree_check)" > /etc/exports
+    dnf install -y epel-release
+    dnf install nfs-utils sshpass wget jq bc
+    echo "/export  *(rw,sync,no_root_squash,no_subtree_check)" > /etc/exports
     mkdir -p /export/testing
 
     # Add the following to /etc/sysconfig/nfs
-        LOCKD_TCPPORT=32803
-        LOCKD_UDPPORT=32769
-        MOUNTD_PORT=892
-        RQUOTAD_PORT=875
-        STATD_PORT=662
-        STATD_OUTGOING_PORT=2020
+    LOCKD_TCPPORT=32803
+    LOCKD_UDPPORT=32769
+    MOUNTD_PORT=892
+    RQUOTAD_PORT=875
+    STATD_PORT=662
+    STATD_OUTGOING_PORT=2020    
 
     # Start NFS and rpcbind
     systemctl enable --now rpcbind
-    systemctl enable --now nfs
+    systemctl enable --now nfs-server
 
     # Disable/configure firewalld as necessary
     systemctl disable --now firewalld
@@ -193,14 +193,26 @@ On Ubuntu:
     apt-get install qemu-kvm libvirt-daemon bridge-utils cpu-checker libnss-libvirt sysfsutils
     kvm-ok
 
-On CentOS:
+On EL8 (Rocky Linux 8):
 
-    yum install bridge-utils net-tools ntp qemu-kvm qemu-img libvirt libvirt-daemon libvirt-daemon-driver-qemu libvirt-nss virt-install
+    yum install bridge-utils net-tools chrony qemu-kvm qemu-img libvirt libvirt-daemon libvirt-daemon-driver-qemu libvirt-nss virt-install
 
-Fixing permissions for libvirt-qemu on Ubuntu (for non-root users):
+On Ubuntu, fixing permissions for libvirt-qemu (for non-root users):
 
     sudo getfacl -e /export
     sudo setfacl -m u:libvirt-qemu:rx /export
+
+On EL8/Rocky Linux, add polkit rule to allow non-root users to use virsh (replace 'rohit' with your username):
+
+    # cat /etc/polkit-1/rules.d/50-org.libvirt.unix.manage.rules
+    polkit.addRule(function(action, subject) {
+        if (action.id == "org.libvirt.unix.manage" &&
+            subject.user == "rohit") {
+                return polkit.Result.YES;
+                polkit.log("action=" + action);
+                polkit.log("subject=" + subject);
+        }
+    });
 
 Note: mbx depends on Libvirt NSS for name resolution
 
@@ -208,7 +220,7 @@ Next, add the `libvirt libvirt_guest` in the nss config file, following so that 
 
     files libvirt libvirt_guest dns mymachines
 
-Allow non-root users to add tap interfaces to a bridge:
+Allow non-root users to add tap interfaces to a bridge: (only perhaps on Ubuntu)
 
     sudo chmod u+s /usr/lib/qemu/qemu-bridge-helper
     sudo bash -c 'mkdir -p /etc/qemu && echo "allow virbr0" >>/etc/qemu/bridge.conf && echo "allow virbr1" >>/etc/qemu/bridge.conf'
@@ -220,7 +232,7 @@ On Ubuntu:
 
     apt-get install virt-manager
 
-On CentOS:
+On EL8 (Rocky Linux 8):
 
     yum install -y virt-manager
 
@@ -334,9 +346,12 @@ can run the following on KVM hosts (before launching the zone):
     yum install centos-release-qemu-ev
     yum install qemu-kvm-ev
 
-### Using mbx with multiple machines
+### Accessing MBX Remotely
 
-The easiest way is to setup wireguard:
+This section is only for mbx users who want to access their mbx environments remotely.
+For this we suggest setting up wireguard VPN.
+
+To setup wireguard on Ubuntu:
 
     sudo apt-get install wireguard resolvconf
     wg genkey | sudo tee /etc/wireguard/private.key
@@ -366,7 +381,7 @@ Finally enable the server:
     sudo systemctl start wg-quick@wg0.service
     sudo systemctl status wg-quick@wg0.service
 
-## CloudStack Development
+## MBX CloudStack Development
 
 Note: this is not for developers of 3rd party integration/feature that don't
 require changes in CloudStack, such developers should use a QA environment.
