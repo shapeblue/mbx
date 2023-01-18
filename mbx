@@ -321,8 +321,8 @@ deploy() {
   issh root@$msip "sed -i '/^baseurl=.*/d' /etc/yum.repos.d/cloudstack.repo && echo baseurl=$repo >> /etc/yum.repos.d/cloudstack.repo"
   issh root@$msip systemctl enable --now mariadb
   issh root@$msip yum reinstall -y python3-pip
-  issh root@$msip "pip3 install --upgrade pip && pip3 install --ignore-installed netaddr mysql-connector-python"
-  issh root@$msip "pip2 install --upgrade pip && pip2 install --ignore-installed netaddr mysql-connector-python"
+  issh root@$msip "pip3 install --upgrade pip && pip3 install --ignore-installed netaddr mysql-connector-python==8.0.20" || true
+  issh root@$msip "pip2 install --upgrade pip && pip2 install --ignore-installed netaddr mysql-connector-python==8.0.20" || true
   issh root@$msip yum install -y cloudstack-management cloudstack-usage cloudstack-common cloudstack-integration-tests cloudstack-marvin
   issh root@$msip "cloudstack-setup-databases cloud:cloud@localhost --deploy-as=root: -i $msip"
   issh root@$msip "mysql -u root --execute=\"INSERT INTO cloud.configuration (category, instance, component, name, value) VALUES ('Advanced', 'DEFAULT', 'management-server', 'integration.api.port', '8096');\""
