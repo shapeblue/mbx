@@ -1,5 +1,5 @@
 <domain type='kvm'>
-  <name>mbxt-vmware70u1</name>
+  <name>mbxt-vmware70u3</name>
   <uuid>7b7e5cb3-5b35-4fe1-b852-6a3e696f819c</uuid>
   <memory unit='KiB'>18874368</memory>
   <currentMemory unit='KiB'>18874368</currentMemory>
@@ -27,7 +27,7 @@
   <devices>
     <disk type='file' device='disk'>
       <driver name='qemu' type='qcow2'/>
-      <source file='/export/monkeybox/templates/vmware70u1.qcow2'/>
+      <source file='/export/monkeybox/templates/vmware70u3.qcow2'/>
       <target dev='hda' bus='ide'/>
       <boot order='2'/>
       <address type='drive' controller='0' bus='0' target='0' unit='0'/>
@@ -95,7 +95,7 @@
       <address type='pci' domain='0x0000' bus='0x00' slot='0x04' function='0x0'/>
     </sound>
     <video>
-      <model type='qxl' ram='65536' vram='65536' vgamem='16384' heads='1' primary='yes'/>
+      <model type='cirrus' ram='65536' vram='65536' vgamem='16384' heads='1' primary='yes'/>
       <address type='pci' domain='0x0000' bus='0x00' slot='0x02' function='0x0'/>
     </video>
     <redirdev bus='usb' type='spicevmc'>
