@@ -1,5 +1,5 @@
 879b98eaaa1f3288b86e5f2b6cf55363  kvm-centos7.qcow2
-f20881260e04fd1f00eb30f05d9fcc20  vmware67u3.qcow2
+42dbad469816d3313241af94a8a28606  vmware70u3.qcow2
 6f18d8157f5bc7105aba7ac4753d6c38  vmware8.qcow2
 ddb5a5c3110d58c931af2d12dd4ee756  xcpng82.qcow2
 15a63f3cb7d42d7fbd69f8aae2dc4c75  xenserver71.qcow2
