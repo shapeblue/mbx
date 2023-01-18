@@ -1,5 +1,5 @@
 <domain type='kvm'>
-  <name>mbxt-vmware70u3</name>
+  <name>mbxt-vmware7</name>
   <uuid>4c72be3c-21c4-444f-8a6e-9df1434d77d7</uuid>
   <memory unit='KiB'>16777216</memory>
   <currentMemory unit='KiB'>16777216</currentMemory>
@@ -28,7 +28,7 @@
   <devices>
     <disk type='file' device='disk'>
       <driver name='qemu' type='qcow2'/>
-      <source file='/export/monkeybox/templates/vmware70u3.qcow2'/>
+      <source file='/export/monkeybox/templates/vmware7.qcow2'/>
       <target dev='hda' bus='ide'/>
       <address type='drive' controller='0' bus='0' target='0' unit='0'/>
     </disk>

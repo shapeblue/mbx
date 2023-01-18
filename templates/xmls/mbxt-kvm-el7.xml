@@ -1,5 +1,5 @@
 <domain type='kvm'>
-  <name>mbxt-kvm-centos7</name>
+  <name>mbxt-kvm-el7</name>
   <uuid>942496ef-dfb1-4bcd-9751-93d3a02c35a7</uuid>
   <memory unit='KiB'>8388608</memory>
   <currentMemory unit='KiB'>8388608</currentMemory>
@@ -28,7 +28,7 @@
   <devices>
     <disk type='file' device='disk'>
       <driver name='qemu' type='qcow2'/>
-      <source file='/export/monkeybox/templates/kvm-centos7.qcow2'/>
+      <source file='/export/monkeybox/templates/kvm-el7.qcow2'/>
       <target dev='hda' bus='ide'/>
       <address type='drive' controller='0' bus='0' target='0' unit='0'/>
     </disk>

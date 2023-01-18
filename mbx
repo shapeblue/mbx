@@ -91,7 +91,7 @@ list() {
   if [ ${#options[@]} -eq 0 ]; then
     echo "No mbx environments found"
   fi
-  echo "Following mbx templates are available:"
+  echo -e "\nFollowing mbx templates are available:"
   virsh list --all | grep mbxt- | awk '{print $2}'
 }
 
@@ -521,7 +521,7 @@ dev() {
     fi
     # VMware: Start VC
     if [[ "$hypervisor" == "vmw" && "$box" == "$env-host1" ]]; then
-      vcmac=$( (date; cat /proc/interrupts) | md5sum | sed -r 's/^(.{4}).*$/\1/;s/([0-9a-f]{2})/\1:/g;s/^/00:50:56:00:/;s/:$//' )
+      vcmac=$( (date; cat /proc/interrupts) | md5sum | sed -r 's/^(.{4}).*$/\1/;s/([0-9a-f]{2})/\1:/g;s/^/00:0c:29:e1:/;s/:$//' )
       if [[ "$hyt" == "mbxt-vmware70u1" ]]; then
         issh root@$box "echo 'ethernet0.addressType = \"static\"' >> /vmfs/volumes/datastore1/VC/VC.vmx"
         issh root@$box "echo 'ethernet0.address = \"${vcmac}\"' >> /vmfs/volumes/datastore1/VC/VC.vmx"
