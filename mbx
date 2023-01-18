@@ -82,16 +82,16 @@ list() {
       echo -e "$vm\t$ip\t$url"
       if [[ $vm == *vmw-host1* ]]; then
         vcip=$(sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$vm vim-cmd "vmsvc/get.guest 1 | grep ipAddress | head -1 | sed 's/.*ipAddress = \"//g' | sed 's/\".*//g'" 2> /dev/null) || true
-        echo -e "VC (photon-machine)\t\t$vcip\thttps://$vcip/"
+        echo -e "vCenter Server\t\t\t\t$vcip\thttps://$vcip/"
       fi
     done
     echo
     options+=($env)
   done
   if [ ${#options[@]} -eq 0 ]; then
-    echo "No mbx environments found"
+    echo -e "No mbx environments found\n"
   fi
-  echo -e "\nFollowing mbx templates are available:"
+  echo "Following mbx templates are available:"
   virsh list --all | grep mbxt- | awk '{print $2}'
 }
 
