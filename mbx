@@ -246,11 +246,9 @@ deploy() {
   fi
 
   # Clone hypervisor host2
-  if [[ "$hyt" != "mbxt-vmware70u1" ]]; then
-    virt-clone --original $hyt --name $env-host2 --file $ROOT/boxes/$env/$env-host2.qcow2
-    echo $env-host2 >> $ROOT/boxes/$env/list
-    virsh setmaxmem $env-host2 8G --config
-  fi
+  virt-clone --original $hyt --name $env-host2 --file $ROOT/boxes/$env/$env-host2.qcow2
+  echo $env-host2 >> $ROOT/boxes/$env/list
+  virsh setmaxmem $env-host2 8G --config
 
   echo "Starting VMs"
   for domain in $(cat $ROOT/boxes/$env/list); do virsh start $domain; done;
@@ -269,7 +267,10 @@ deploy() {
       sleep 10
       ip=$(getent hosts $box | awk '{ print $1 }')
     done
-    while ! nc -vzw 10 $ip 22 2>&1 > /dev/null; do echo "Waiting for ssh on $box ($ip) to come up"; sleep 10; done
+    while ! nc -vzw 10 $ip 22 2>&1 > /dev/null; do
+      echo "Waiting for ssh on $box ($ip) to come up"; sleep 10;
+      ip=$(getent hosts $box | awk '{ print $1 }')
+    done
     echo "$box is UP"
     sleep 5
 
