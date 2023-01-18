@@ -320,7 +320,8 @@ deploy() {
   msip=$(getent hosts $env-mgmt1 | awk '{ print $1 }')
   # Fix CentOS7 repo
   issh root@$msip "sed -i '/^baseurl=.*/d' /etc/yum.repos.d/cloudstack.repo && echo baseurl=$repo >> /etc/yum.repos.d/cloudstack.repo"
-  issh root@$msip systemctl enable --now mariadb
+  issh root@$msip "systemctl enable --now mariadb" || true # for EL7
+  issh root@$msip "systemctl enable --now mysqld"  || true # for EL8
   issh root@$msip yum reinstall -y python3-pip
   issh root@$msip "pip3 install --upgrade pip && pip3 install --ignore-installed netaddr mysql-connector-python==8.0.20" || true
   issh root@$msip "pip2 install --upgrade pip && pip2 install --ignore-installed netaddr mysql-connector-python==8.0.20" || true
