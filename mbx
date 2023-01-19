@@ -82,7 +82,7 @@ list() {
       echo -e "$vm\t$ip\t$url"
       if [[ $vm == *vmw-host1* ]]; then
         vcip=$(sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$vm vim-cmd "vmsvc/get.guest 1 | grep ipAddress | head -1 | sed 's/.*ipAddress = \"//g' | sed 's/\".*//g'" 2> /dev/null) || true
-        echo -e "vCenter Server\t\t\t\t$vcip\thttps://$vcip/"
+        echo -e "vCenter Server\t\t\t$vcip\thttps://$vcip/"
       fi
     done
     echo
@@ -289,8 +289,13 @@ deploy() {
     if [[ "$hypervisor" == "vmw" && "$box" == "$env-host1" ]]; then
       sleep 30
       vcmac=$( (date; cat /proc/interrupts) | md5sum | sed -r 's/^(.{4}).*$/\1/;s/([0-9a-f]{2})/\1:/g;s/^/00:50:56:00:/;s/:$//' )
-      issh root@$box "echo 'ethernet0.addressType = \"static\"' >> /vmfs/volumes/datastore1/VC/VC.vmx"
-      issh root@$box "echo 'ethernet0.address = \"${vcmac}\"' >> /vmfs/volumes/datastore1/VC/VC.vmx"
+      if [[ "$hyt" == "mbxt-vmware67u3" ]]; then
+        issh root@$box "echo 'ethernet0.addressType = \"static\"' >> /vmfs/volumes/datastore1/VC67/VC67.vmx" || true
+        issh root@$box "echo 'ethernet0.address = \"${vcmac}\"' >> /vmfs/volumes/datastore1/VC67/VC67.vmx" || true
+      else
+        issh root@$box "echo 'ethernet0.addressType = \"static\"' >> /vmfs/volumes/datastore1/VC/VC.vmx" || true
+        issh root@$box "echo 'ethernet0.address = \"${vcmac}\"' >> /vmfs/volumes/datastore1/VC/VC.vmx" || true
+      fi
       issh root@$box vim-cmd vmsvc/getallvms
       issh root@$box vim-cmd vmsvc/power.on 1
       echo "VC started"
@@ -325,7 +330,7 @@ deploy() {
   issh root@$msip yum reinstall -y python3-pip
   issh root@$msip "pip3 install --upgrade pip && pip3 install --ignore-installed netaddr mysql-connector-python==8.0.20" || true
   issh root@$msip "pip2 install --upgrade pip && pip2 install --ignore-installed netaddr mysql-connector-python==8.0.20" || true
-  issh root@$msip yum install -y cloudstack-management cloudstack-usage cloudstack-common cloudstack-integration-tests cloudstack-marvin
+  issh root@$msip yum install -y cloudstack-management cloudstack-usage cloudstack-common cloudstack-integration-tests cloudstack-marvin tar
   issh root@$msip "cloudstack-setup-databases cloud:cloud@localhost --deploy-as=root: -i $msip"
   issh root@$msip "mysql -u root --execute=\"INSERT INTO cloud.configuration (category, instance, component, name, value) VALUES ('Advanced', 'DEFAULT', 'management-server', 'integration.api.port', '8096');\""
   issh root@$msip cloudstack-setup-management
@@ -522,9 +527,12 @@ dev() {
     # VMware: Start VC
     if [[ "$hypervisor" == "vmw" && "$box" == "$env-host1" ]]; then
       vcmac=$( (date; cat /proc/interrupts) | md5sum | sed -r 's/^(.{4}).*$/\1/;s/([0-9a-f]{2})/\1:/g;s/^/00:0c:29:e1:/;s/:$//' )
-      if [[ "$hyt" == "mbxt-vmware70u1" ]]; then
-        issh root@$box "echo 'ethernet0.addressType = \"static\"' >> /vmfs/volumes/datastore1/VC/VC.vmx"
-        issh root@$box "echo 'ethernet0.address = \"${vcmac}\"' >> /vmfs/volumes/datastore1/VC/VC.vmx"
+      if [[ "$hyt" == "mbxt-vmware67u3" ]]; then
+        issh root@$box "echo 'ethernet0.addressType = \"static\"' >> /vmfs/volumes/datastore1/VC67/VC67.vmx" || true
+        issh root@$box "echo 'ethernet0.address = \"${vcmac}\"' >> /vmfs/volumes/datastore1/VC67/VC67.vmx" || true
+      else
+        issh root@$box "echo 'ethernet0.addressType = \"static\"' >> /vmfs/volumes/datastore1/VC/VC.vmx" || true
+        issh root@$box "echo 'ethernet0.address = \"${vcmac}\"' >> /vmfs/volumes/datastore1/VC/VC.vmx" || true
       fi
       issh root@$box vim-cmd vmsvc/getallvms
       issh root@$box vim-cmd vmsvc/power.on 1
