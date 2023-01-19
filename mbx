@@ -82,7 +82,7 @@ list() {
       echo -e "$vm\t$ip\t$url"
       if [[ $vm == *vmw-host1* ]]; then
         vcip=$(sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$vm vim-cmd "vmsvc/get.guest 1 | grep ipAddress | head -1 | sed 's/.*ipAddress = \"//g' | sed 's/\".*//g'" 2> /dev/null) || true
-        echo -e "vCenter Server\t\t\t$vcip\thttps://$vcip/"
+        echo -e "$env-vCenter\t$vcip\thttps://$vcip/"
       fi
     done
     echo
@@ -298,14 +298,22 @@ deploy() {
       fi
       issh root@$box vim-cmd vmsvc/getallvms
       issh root@$box vim-cmd vmsvc/power.on 1
-      echo "VC started"
+      issh root@$box vim-cmd hostsvc/advopt/update Config.HostAgent.plugins.solo.enableMob bool true 
+      issh root@$box /usr/bin/vmware-vim-cmd hostsvc/net/vswitch_setpolicy --securepolicy-promisc=false vSwitch0
+      issh root@$box /usr/bin/vmware-vim-cmd hostsvc/net/vswitch_setpolicy --securepolicy-macchange=true vSwitch0
+      issh root@$box /usr/bin/vmware-vim-cmd hostsvc/net/vswitch_setpolicy --securepolicy-forgedxmit=true vSwitch0
+      echo "VC started, VMware host1 configured"
     fi
     if [[ "$hypervisor" == "vmw" && "$box" == "$env-host2" ]]; then
       sleep 10
       issh root@$box vim-cmd vmsvc/unregister 1
       issh root@$box vim-cmd vmsvc/getallvms
       issh root@$box vim-cmd hostsvc/datastore/remove datastore1
-      echo "VC and datastore1 on other ESXi host cleaned"
+      issh root@$box vim-cmd hostsvc/advopt/update Config.HostAgent.plugins.solo.enableMob bool true
+      issh root@$box /usr/bin/vmware-vim-cmd hostsvc/net/vswitch_setpolicy --securepolicy-promisc=false vSwitch0
+      issh root@$box /usr/bin/vmware-vim-cmd hostsvc/net/vswitch_setpolicy --securepolicy-macchange=true vSwitch0
+      issh root@$box /usr/bin/vmware-vim-cmd hostsvc/net/vswitch_setpolicy --securepolicy-forgedxmit=true vSwitch0
+      echo "VMware host2 cleaned and configured"
     fi
 
     # XenServer: Make hosts unique
@@ -686,6 +694,8 @@ destroy() {
   done
   sed -i "/$env/d" $ROOT/boxes/boxes.list
   rm -fr $ROOT/boxes/$env
+  virsh pool-destroy $env || true
+  virsh pool-undefine $env || true
   sync
   sudo rm -fr /export/testing/$env
 }

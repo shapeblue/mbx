@@ -12,7 +12,7 @@
     <acpi/>
     <apic/>
   </features>
-  <cpu mode='host-passthrough' check='partial'/>
+  <cpu mode='host-passthrough' check='none'/>
   <clock offset='utc'>
     <timer name='rtc' tickpolicy='catchup'/>
     <timer name='pit' tickpolicy='delay'/>
