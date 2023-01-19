@@ -21,7 +21,7 @@ ROOT="$( cd "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )"
 mkdir -p $ROOT/boxes
 touch $ROOT/boxes/boxes.list
 export LIBVIRT_DEFAULT_URI="qemu:///system"
-echo MonkeyBox 🐵 v0.3
+echo MonkeyBox 🐵 v0.4
 
 usage() {
   echo "Available commands are:"
@@ -81,8 +81,8 @@ list() {
       fi
       echo -e "$vm\t$ip\t$url"
       if [[ $vm == *vmw-host1* ]]; then
-        vcip=$(sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$vm vim-cmd "vmsvc/get.guest 1 | grep ipAddress | head -1 | sed 's/.*ipAddress = \"//g' | sed 's/\".*//g'" 2> /dev/null) || true
-        echo -e "$env-vCenter\t$vcip\thttps://$vcip/"
+        vcip=$(sshpass -p 'P@ssword123' ssh -o "ConnectTimeout=1" -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$vm vim-cmd "vmsvc/get.guest 1 | grep ipAddress | head -1 | sed 's/.*ipAddress = \"//g' | sed 's/\".*//g'" 2> /dev/null) || true
+        echo -e "$env-vcsvr\t$vcip\thttps://$vcip/"
       fi
     done
     echo
@@ -299,9 +299,9 @@ deploy() {
       issh root@$box vim-cmd vmsvc/getallvms
       issh root@$box vim-cmd vmsvc/power.on 1
       issh root@$box vim-cmd hostsvc/advopt/update Config.HostAgent.plugins.solo.enableMob bool true 
-      issh root@$box /usr/bin/vmware-vim-cmd hostsvc/net/vswitch_setpolicy --securepolicy-promisc=false vSwitch0
-      issh root@$box /usr/bin/vmware-vim-cmd hostsvc/net/vswitch_setpolicy --securepolicy-macchange=true vSwitch0
-      issh root@$box /usr/bin/vmware-vim-cmd hostsvc/net/vswitch_setpolicy --securepolicy-forgedxmit=true vSwitch0
+      issh root@$box vim-cmd hostsvc/net/vswitch_setpolicy --securepolicy-promisc=false vSwitch0
+      issh root@$box vim-cmd hostsvc/net/vswitch_setpolicy --securepolicy-macchange=true vSwitch0
+      issh root@$box vim-cmd hostsvc/net/vswitch_setpolicy --securepolicy-forgedxmit=true vSwitch0
       echo "VC started, VMware host1 configured"
     fi
     if [[ "$hypervisor" == "vmw" && "$box" == "$env-host2" ]]; then
@@ -310,9 +310,9 @@ deploy() {
       issh root@$box vim-cmd vmsvc/getallvms
       issh root@$box vim-cmd hostsvc/datastore/remove datastore1
       issh root@$box vim-cmd hostsvc/advopt/update Config.HostAgent.plugins.solo.enableMob bool true
-      issh root@$box /usr/bin/vmware-vim-cmd hostsvc/net/vswitch_setpolicy --securepolicy-promisc=false vSwitch0
-      issh root@$box /usr/bin/vmware-vim-cmd hostsvc/net/vswitch_setpolicy --securepolicy-macchange=true vSwitch0
-      issh root@$box /usr/bin/vmware-vim-cmd hostsvc/net/vswitch_setpolicy --securepolicy-forgedxmit=true vSwitch0
+      issh root@$box vim-cmd hostsvc/net/vswitch_setpolicy --securepolicy-promisc=false vSwitch0
+      issh root@$box vim-cmd hostsvc/net/vswitch_setpolicy --securepolicy-macchange=true vSwitch0
+      issh root@$box vim-cmd hostsvc/net/vswitch_setpolicy --securepolicy-forgedxmit=true vSwitch0
       echo "VMware host2 cleaned and configured"
     fi
 
