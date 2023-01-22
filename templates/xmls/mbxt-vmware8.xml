@@ -57,7 +57,7 @@
     <interface type='network'>
       <mac address='52:54:00:95:82:95'/>
       <source network='monkeynet'/>
-      <model type='e1000e'/>
+      <model type='vmxnet3'/>
       <address type='pci' domain='0x0000' bus='0x00' slot='0x03' function='0x0'/>
     </interface>
     <serial type='pty'>
