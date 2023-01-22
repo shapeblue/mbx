@@ -190,7 +190,7 @@ On EL8 (Rocky Linux 8):
 
 On Ubuntu:
 
-    apt-get install qemu-kvm libvirt-daemon libvirt-daemon-system libvirt-clients bridge-utils cpu-checker libnss-libvirt sysfsutils
+    apt-get install qemu-kvm libvirt-daemon libvirt-daemon-system libvirt-clients bridge-utils virtinst cpu-checker libnss-libvirt sysfsutils
     kvm-ok
 
 On EL8 (Rocky Linux 8):
