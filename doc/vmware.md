@@ -49,6 +49,14 @@ uuid.bios =
 ethernet0.generatedAddress =
 ethernet0.generatedAddressOffset =
 
+In VC.vmx add at bottom: (replace vmwareXX.local pnid)
+
+guestInfo.cis.deployment.node.type = "embedded"
+guestInfo.cis.appliance.net.addr.family = "ipv4"
+guestInfo.cis.appliance.net.mode = "dhcp"
+guestInfo.cis.appliance.net.pnid = "vcenter70.local"
+guestInfo.cis.appliance.ssh.enabled = "True"
+
 vcenter debug services:
 service-control --stop --all
 service-control --start --all
