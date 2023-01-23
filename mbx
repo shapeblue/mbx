@@ -435,6 +435,7 @@ launch() {
 
   version=$(curl -Ss http://$msip:8080/client/api 2>&1 | sed 's/.*version="//g' | sed 's/".*//g' | sed 's/-SNAPSHOT//g' | grep -Po '4.[\d]*')
   if [[ $(echo $version | sed 's/4.//g') -gt 15 ]]; then
+    issh root@$msip "pip3 uninstall -y Marvin" || true
     issh root@$msip "cd /usr/share/cloudstack-marvin && tar zxf Marvin*.tar.gz && mv Marvin*.tar.gz archive-marvin.tar.gz && sed -i 's/-SNAPSHOT//g' Marvin-*/setup.py"
     issh root@$msip "pip3 install --ignore-installed /usr/share/cloudstack-marvin/Marvin-*/"
     issh root@$msip "pip3 install --ignore-installed mysql-connector-python==8.0.20" || true
