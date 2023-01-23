@@ -436,7 +436,7 @@ launch() {
   version=$(curl -Ss http://$msip:8080/client/api 2>&1 | sed 's/.*version="//g' | sed 's/".*//g' | sed 's/-SNAPSHOT//g' | grep -Po '4.[\d]*')
   if [[ $(echo $version | sed 's/4.//g') -gt 15 ]]; then
     issh root@$msip "cd /usr/share/cloudstack-marvin && tar zxf Marvin*.tar.gz && mv Marvin*.tar.gz archive-marvin.tar.gz && sed -i 's/-SNAPSHOT//g' Marvin-*/setup.py"
-    issh root@$msip "pip3 install --ignore-installed /usr/share/cloudstack-marvin/Marvin-*/"
+    issh root@$msip "pip3 install --ignore-installed /usr/share/cloudstack-marvin/Marvin-*/ --use-pep517"
     issh root@$msip "pip3 install --ignore-installed mysql-connector-python==8.0.20" || true
     issh root@$msip "cd /marvin && ln -sf /usr/share/cloudstack-integration-tests tests" || true
     issh root@$msip "python3 -m marvin.deployDataCenter -i /marvin/marvin.cfg"
@@ -557,7 +557,11 @@ dev() {
   # Setup KVM hosts
   if [[ $hypervisor == "kvm" ]]; then
     issh root@$env-host1 "echo host.reserved.mem.mb=512 >> /etc/cloudstack/agent/agent.properties"
-    issh root@$env-host1 "yum install -y openssh-clients java-11-openjdk libvirt bridge-utils ebtables iptables ethtool net-tools iproute ipset perl python36-libvirt qemu-img qemu-kvm python python3 python3-pip"
+    if [[ "$hyt" == "mbxt-kvm-el9" ]]; then
+      issh root@$env-host1 "dnf install -y openssh-clients java-11-openjdk libvirt bridge-utils ebtables iptables ethtool net-tools iproute ipset perl python3-libvirt qemu-img qemu-kvm python python3 python3-pip"
+    else
+      issh root@$env-host1 "yum install -y openssh-clients java-11-openjdk libvirt bridge-utils ebtables iptables ethtool net-tools iproute ipset perl python36-libvirt qemu-img qemu-kvm python python3 python3-pip"
+    fi
   fi
   # Setup xen/xcp hosts
   if [[ $hypervisor == "xen" || $hypervisor == "xcp" ]]; then
