@@ -214,9 +214,9 @@ deploy() {
     exit 1
   fi
 
-  name=${1:-"mbx-cs415"}
-  mst=${2:-"mbxt-kvm-centos7"}
-  hyt=${3:-"mbxt-kvm-centos7"}
+  name=${1:-"mbx-cs418"}
+  mst=${2:-"mbxt-kvm-el7"}
+  hyt=${3:-"mbxt-kvm-el7"}
   # Validate templates
   check_mbxt mgmt $mst
   check_mbxt hypervisor $hyt
@@ -352,7 +352,7 @@ deploy() {
     issh root@$env-host2 "sed -i '/^baseurl=.*/d' /etc/yum.repos.d/cloudstack.repo && echo baseurl=$repo >> /etc/yum.repos.d/cloudstack.repo"
     issh root@$env-host2 yum install -y cloudstack-agent
     # Install qemu-kvm-ev on EL7
-    if [[ "$hyt" == ""mbxt-kvm-centos7 ]]; then
+    if [[ "$hyt" == "mbxt-kvm-el7" ]]; then
       issh root@$env-host1 "yum install -y centos-release-qemu-ev && yum install -y qemu-kvm-ev"
       issh root@$env-host2 "yum install -y centos-release-qemu-ev && yum install -y qemu-kvm-ev"
     fi
@@ -484,7 +484,7 @@ dev() {
   fi
 
   name=${1:-"mbx-dev"}
-  hyt=${2:-"mbxt-kvm-centos7"}
+  hyt=${2:-"mbxt-kvm-el7"}
   # Validate input templates
   check_mbxt hypervisor $hyt
 
