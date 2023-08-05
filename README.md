@@ -105,29 +105,30 @@ The `mbx` environments, their configurations and VM disks are hosted at
 ## Compatibility
 
 Host requirements:
-- Ubuntu 20.04 LTS (recommended) or CentOS 7
+- Ubuntu 22.04 LTS (recommended) or EL7/8/9**
 - Recommended 32GB RAM with Intel VT-x or AMD-V enabled 4+cores CPU
 - Uninstall any other hypervisor software (such as VMware workstation, VirtualBox)
 
-Note: `mbx` has been tested and developed on Ubuntu 20.04 LTS
+**Note: `mbx` has been tested and developed on Ubuntu 20.04/22.04 LTS; VMware environment require vmxnet3 which may not be supported on EL7/8/9 environments
 
 Supported Management Server (Templates):
-- CentOS 7
+- EL7 (CentOS 7)
+- EL8 (AlmaLinux 8)
+- EL9 (AlmaLinux 9)
 
 Supported Hypervisors (Templates):
-- CentOS 7 KVM
-- VMware vSphere 6.7u3
-- VMware vSphere 7.0u1 (partially working)
-- XCP-ng 8.2
-- XCP-ng 7.6
-- XenServer 7.1 LSTR
+- KVM: EL7, EL8, EL9
+- VMware vSphere: 6.7u3, 7 (7.0u3), 8 (8.0)
+- XCP-ng: 8.2
+- XenServer: 7.1 LSTR
 
 Tested CloudStack versions:
 - 4.15.2.0
-- 4.16.0.0
-- 4.17.0.0
+- 4.16
+- 4.17
+- 4.18
 
-Env deployment supported CloudStack versions: 4.11 or later
+MBX environment deployment supported with CloudStack versions: 4.11 or later
 Smoketests supported CloudStack versions: 4.16 or later
 
 Note: legacy CloudStack releases older than v4.11 that don't have
@@ -214,7 +215,7 @@ On EL8/Rocky Linux, add polkit rule to allow non-root users to use virsh (replac
         }
     });
 
-Note: mbx depends on Libvirt NSS for name resolution
+Note: mbx depends on Libvirt NSS for name resolution; replace `rohit` with your username on the host.
 
 Next, add the `libvirt libvirt_guest` in the nss config file, following so that `grep -w 'hosts:' /etc/nsswitch.conf` returns: (note: ensure the same order as below)
 
@@ -316,17 +317,17 @@ smoketests on them.
 
 2. To deploy an environment, run:
 
-    mbx deploy <name of env, default: mbxe> <mgmt server template, default: mbxt-kvm-centos7> <hypervisor template, default: mbxt-kvm-centos7> <repo, default: http://packages.shapeblue.com/cloudstack/upstream/centos7/4.17>
+    mbx deploy <name of env, default: mbxe> <mgmt server template, default: mbxt-kvm-el7> <hypervisor template, default: mbxt-kvm-el7> <repo, default: http://packages.shapeblue.com/cloudstack/upstream/el7/4.18>
 
 Example to deploy test matrix (kvm, vmware, xenserver) environments:
 
-    mbx deploy 417-kenv mbxt-kvm-centos7 mbxt-kvm-centos7 # deploys 4.17 + KVM CentOS7 env
-    mbx deploy 417-venv mbxt-kvm-centos7 mbxt-vmware67u3  # deploys 4.17 + VMware67u3 env
-    mbx deploy 417-xenv mbxt-kvm-centos7 mbxt-xenserver71 # deploys 4.17 + XenServer71 env
+    mbx deploy 418-kenv mbxt-kvm-el7 mbxt-kvm-el7 # deploys ACS 4.18 + KVM CentOS7 env
+    mbx deploy 418-venv mbxt-kvm-el7 mbxt-vmware7 # deploys ACS 4.18 + VMware7(u3) env
+    mbx deploy 418-xenv mbxt-kvm-el7 mbxt-xcpng82 # deploys ACS 4.18 + XCP-ng 8.2 env
 
 More examples with custom packages repositories:
 
-    mbx deploy cs417-kvm mbxt-kvm-centos7 mbxt-kvm-centos7 http://download.cloudstack.org/centos/7/4.17/
+    mbx deploy cs417-kvm mbxt-kvm-el7 mbxt-kvm-el7 http://download.cloudstack.org/centos/7/4.17/
 
 3. Once `mbx` environment is deployed, to launch a zone run:
 
