@@ -408,7 +408,7 @@ services can be accessible to VMs, KVM hosts etc. at your host IP `172.20.0.1`.
 To deploy a dev env, you can run `mbx dev <name of env> <hypervisor template>`.
 For example:
 
-    $ mbx dev some-feature mbxt-kvm-centos7
+    $ mbx dev some-feature mbxt-kvm-el7
 
 The above will deploy a single hypervisor host and generate a marvin config file
 that you can use to deploy a zone.
