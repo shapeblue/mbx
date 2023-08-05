@@ -245,7 +245,7 @@ deploy() {
   virsh setmaxmem $env-host1 8G --config
   if [[ "$hypervisor" == "vmw" ]]; then
     # VC runs on 1st ESXi host
-    virsh setmaxmem $env-host1 18G --config
+    virsh setmaxmem $env-host1 20G --config
   fi
 
   # Clone hypervisor host2
@@ -338,7 +338,7 @@ deploy() {
   issh root@$msip yum reinstall -y python3-pip
   issh root@$msip "pip3 install --upgrade pip && pip3 install --ignore-installed netaddr mysql-connector-python==8.0.20" || true
   issh root@$msip "pip2 install --upgrade pip && pip2 install --ignore-installed netaddr mysql-connector-python==8.0.20" || true
-  issh root@$msip yum install -y cloudstack-management cloudstack-usage cloudstack-common cloudstack-integration-tests cloudstack-marvin tar
+  issh root@$msip yum install -y cloudstack-management cloudstack-usage cloudstack-common cloudstack-integration-tests cloudstack-marvin tar tzdata-java
   issh root@$msip "cloudstack-setup-databases cloud:cloud@localhost --deploy-as=root: -i $msip"
   issh root@$msip "mysql -u root --execute=\"INSERT INTO cloud.configuration (category, instance, component, name, value) VALUES ('Advanced', 'DEFAULT', 'management-server', 'integration.api.port', '8096');\""
   issh root@$msip cloudstack-setup-management
@@ -399,13 +399,12 @@ deploy() {
     done
     while [[ "$(curl -sL -w '%{http_code}' https://${vcip}/sdk/vimService.wsdl --insecure -o /dev/null)" != "200" ]]; do
       echo "Waiting for VC vim service to be UP"
-      sleep 5
+      sleep 10
     done
+    sleep 10
     # Check vim service and add hosts cluster
     $ROOT/files/govc cluster.add -k=true -u=https://administrator@vsphere.local:P@ssword123@$vcip/sdk -cluster "/DC/host/Cluster" -noverify -force -hostname $host1 -username root -password P@ssword123
-    if [[ "$hyt" != "mbxt-vmware70u1" ]]; then
-      $ROOT/files/govc cluster.add -k=true -u=https://administrator@vsphere.local:P@ssword123@$vcip/sdk -cluster "/DC/host/Cluster" -noverify -force -hostname $host2 -username root -password P@ssword123
-    fi
+    $ROOT/files/govc cluster.add -k=true -u=https://administrator@vsphere.local:P@ssword123@$vcip/sdk -cluster "/DC/host/Cluster" -noverify -force -hostname $host2 -username root -password P@ssword123
     echo "Before launching zone, open the VC web UI and reset any warning on the ESXi hosts by clicking 'Reset to Green'"
   fi
 
