@@ -101,6 +101,8 @@ package() {
     exit 0
   fi
 
+  echo "This feature likely broken, run at your own risk"
+
   url="${1:-apache/cloudstack}"
   echo $url | egrep "^https?://" || url="https://github.com/$url"
   tag="${2:-master}"
@@ -221,7 +223,7 @@ deploy() {
   check_mbxt mgmt $mst
   check_mbxt hypervisor $hyt
   hypervisor=$(echo $hyt |  awk '{print substr($0,6,3)}')
-  repo=${4:-"http://packages.shapeblue.com/cloudstack/upstream/centos7/4.17"}
+  repo=${4:-"http://packages.shapeblue.com/cloudstack/upstream/el7/4.18"}
 
   uuid=$(cat /proc/sys/kernel/random/uuid | sed 's/-.*//g')
   env="qa$id-$name-$uuid-$hypervisor"
@@ -331,7 +333,7 @@ deploy() {
 
   # Setup Management Server
   msip=$(getent hosts $env-mgmt1 | awk '{ print $1 }')
-  # Fix CentOS7 repo
+  # Fix EL repo
   issh root@$msip "sed -i '/^baseurl=.*/d' /etc/yum.repos.d/cloudstack.repo && echo baseurl=$repo >> /etc/yum.repos.d/cloudstack.repo"
   issh root@$msip "systemctl enable --now mariadb" || true # for EL7
   issh root@$msip "systemctl enable --now mysqld"  || true # for EL8
