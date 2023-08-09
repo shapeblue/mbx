@@ -124,6 +124,7 @@ package() {
   git fetch --tags --progress $url --depth 1 +refs/heads/*:refs/remotes/origin/* > /dev/null
   git config remote.origin.url $url
   git config --add remote.origin.fetch +refs/heads/*:refs/remotes/origin/*
+  git checkout $tag
 
   cd $CUR
 
