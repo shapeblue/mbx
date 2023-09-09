@@ -444,7 +444,7 @@ launch() {
     issh root@$msip "cd /marvin && ln -sf /usr/share/cloudstack-integration-tests tests" || true
     issh root@$msip "python3 -m marvin.deployDataCenter -i /marvin/marvin.cfg"
   else
-    if echo "4.9 4.11 4.12 4.13 4.14 4.15 4.17 4.17.2.0 4.18" | grep -w $version > /dev/null; then
+    if echo "4.9 4.11 4.12 4.13 4.14 4.15" | grep -w $version > /dev/null; then
       hypervisor=$(cat $ROOT/boxes/$env/hypervisor)
       seed_systemvmtemplate $version $hypervisor /export/testing/$env/secondary
     else
