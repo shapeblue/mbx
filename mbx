@@ -444,7 +444,7 @@ launch() {
     issh root@$msip "cd /marvin && ln -sf /usr/share/cloudstack-integration-tests tests" || true
     issh root@$msip "python3 -m marvin.deployDataCenter -i /marvin/marvin.cfg"
   else
-    if echo "4.9 4.11 4.12 4.13 4.14 4.15" | grep -w $version > /dev/null; then
+    if echo "4.9 4.11 4.12 4.13 4.14 4.15 4.17 4.17.2.0 4.18" | grep -w $version > /dev/null; then
       hypervisor=$(cat $ROOT/boxes/$env/hypervisor)
       seed_systemvmtemplate $version $hypervisor /export/testing/$env/secondary
     else
@@ -625,8 +625,11 @@ agentscp() {
   issh root@$kvm_host "mkdir -p /etc/cloudstack/agent/ /usr/share/cloudstack-common/{lib,scripts,vms} /usr/share/cloudstack-agent/{lib,plugins} /var/log/cloudstack/agent/"
   issh root@$kvm_host "echo 'paths.pid=/var/run' > /etc/cloudstack/agent/environment.properties; echo 'paths.script=/usr/share/cloudstack-common' >> /etc/cloudstack/agent/environment.properties"
 
-  echo "[acs agent] Copied systemvm.iso"
-  iscp $CUR/systemvm/dist/systemvm.iso root@$kvm_host:/usr/share/cloudstack-common/vms/
+  local_version=$(ls $CUR/client/target/cloud-client* | sed 's/.*version="//g' | sed 's/".*//g' | sed 's/-SNAPSHOT//g' | grep -Po '4.[\d]*')
+  if [[ $(echo $local_version | sed 's/4.//g') -lt 16 ]]; then
+  	echo "[acs agent] Copied systemvm.iso"
+  	iscp $CUR/systemvm/dist/systemvm.iso root@$kvm_host:/usr/share/cloudstack-common/vms/
+  fi
 
   echo "[acs agent] Syncing python lib changes to host: $kvm_host"
   iscp -r $CUR/python/lib/* root@$kvm_host:/usr/lib64/python2.7/site-packages/ 2>/dev/null || true
