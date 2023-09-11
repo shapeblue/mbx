@@ -105,11 +105,11 @@ The `mbx` environments, their configurations and VM disks are hosted at
 ## Compatibility
 
 Host requirements:
-- Ubuntu 22.04 LTS (recommended) or EL7/8/9**
+- Ubuntu 22.04 LTS (recommended) or EL8/9**
 - Recommended 32GB RAM with Intel VT-x or AMD-V enabled 4+cores CPU
 - Uninstall any other hypervisor software (such as VMware workstation, VirtualBox)
 
-**Note: `mbx` has been tested and developed on Ubuntu 20.04/22.04 LTS; VMware environment require vmxnet3 which may not be supported on EL7/8/9 environments
+**Note: `mbx` has been tested and developed on Ubuntu 20.04 and 22.04 LTS; VMware environment require vmxnet3 which may not be supported on EL environments
 
 Supported Management Server (Templates):
 - EL7 (CentOS 7)
@@ -123,13 +123,13 @@ Supported Hypervisors (Templates):
 - XenServer: 7.1 LSTR
 
 Tested CloudStack versions:
-- 4.15.2.0
 - 4.16
 - 4.17
 - 4.18
 
-MBX environment deployment supported with CloudStack versions: 4.11 or later
-Smoketests supported CloudStack versions: 4.16 or later
+- MBX QA environment deployment supported with CloudStack versions: 4.11 or later.
+- MBX development supported with CloudStack version 4.16 and later.
+- Smoketests supported CloudStack versions: 4.16 or later.
 
 Note: legacy CloudStack releases older than v4.11 that don't have
 `cloudstack-marvin` package will not work.
@@ -321,9 +321,9 @@ smoketests on them.
 
 Example to deploy test matrix (kvm, vmware, xenserver) environments:
 
-    mbx deploy 418-kenv mbxt-kvm-el7 mbxt-kvm-el7 # deploys ACS 4.18 + KVM CentOS7 env
-    mbx deploy 418-venv mbxt-kvm-el7 mbxt-vmware7 # deploys ACS 4.18 + VMware7(u3) env
-    mbx deploy 418-xenv mbxt-kvm-el7 mbxt-xcpng82 # deploys ACS 4.18 + XCP-ng 8.2 env
+    mbx deploy 418-kenv mbxt-kvm-el8 mbxt-kvm-el8 # deploys ACS 4.18 + KVM EL8 env
+    mbx deploy 418-venv mbxt-kvm-el8 mbxt-vmware7 # deploys ACS 4.18 + VMware7(u3) env
+    mbx deploy 418-xenv mbxt-kvm-el8 mbxt-xcpng82 # deploys ACS 4.18 + XCP-ng 8.2 env
 
 More examples with custom packages repositories:
 
@@ -394,7 +394,8 @@ Finally enable the server:
 ## MBX CloudStack Development
 
 Note: this is not for developers of 3rd party integration/feature that don't
-require changes in CloudStack, such developers should use a QA environment.
+require changes in CloudStack, such developers should use a QA environment. MBX
+development usage is supported to work with CloudStack 4.16 and onwards.
 
 This section covers how a CloudStack developer can run management server and
 MySQL server locally to do development of CloudStack using `mbx` dev boxes along
@@ -408,7 +409,7 @@ services can be accessible to VMs, KVM hosts etc. at your host IP `172.20.0.1`.
 To deploy a dev env, you can run `mbx dev <name of env> <hypervisor template>`.
 For example:
 
-    $ mbx dev some-feature mbxt-kvm-el7
+    $ mbx dev some-feature mbxt-kvm-el8
 
 The above will deploy a single hypervisor host and generate a marvin config file
 that you can use to deploy a zone.
