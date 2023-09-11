@@ -625,9 +625,6 @@ agentscp() {
   issh root@$kvm_host "mkdir -p /etc/cloudstack/agent/ /usr/share/cloudstack-common/{lib,scripts,vms} /usr/share/cloudstack-agent/{lib,plugins} /var/log/cloudstack/agent/"
   issh root@$kvm_host "echo 'paths.pid=/var/run' > /etc/cloudstack/agent/environment.properties; echo 'paths.script=/usr/share/cloudstack-common' >> /etc/cloudstack/agent/environment.properties"
 
-  echo "[acs agent] Copied systemvm.iso"
-  iscp $CUR/systemvm/dist/systemvm.iso root@$kvm_host:/usr/share/cloudstack-common/vms/
-
   echo "[acs agent] Syncing python lib changes to host: $kvm_host"
   iscp -r $CUR/python/lib/* root@$kvm_host:/usr/lib64/python2.7/site-packages/ 2>/dev/null || true
   iscp -r $CUR/python/lib/* root@$kvm_host:/usr/lib64/python3.6/site-packages/ 2>/dev/null || true
