@@ -11,19 +11,21 @@
 #
 # Unless required by applicable law or agreed to in writing,
 # software distributed under the License is distributed on an
-# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
+
 set -e
 
-ROOT="$( cd "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )"
-mkdir -p $ROOT/boxes
-touch $ROOT/boxes/boxes.list
+ROOT="$(cd "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P)"
+mkdir -p "$ROOT/boxes"
+touch "$ROOT/boxes/boxes.list"
 export LIBVIRT_DEFAULT_URI="qemu:///system"
-echo MonkeyBox 🐵 v0.4
+echo "MonkeyBox 🐵 v0.4"
 
 usage() {
+  echo "Usage: $0 {init|package|list|deploy|launch|test|dev|agentscp|ssh|stop|start|destroy} [options]"
   echo "Available commands are:"
   echo "   init: initialises monkeynet and mbx templates"
   echo "   package: builds packages from a git repo and sha/tag/branch"
@@ -39,689 +41,146 @@ usage() {
   echo "   destroy: destroy environment"
 }
 
-init() {
-  if virsh net-list --all --name | grep -q monkeynet;
-  then
-    echo "'monkeynet' network is already defined, skipped re-initialisation";
+network_exists() {
+  virsh net-list --all --name | grep -q "$1"
+}
+
+download_and_verify_template() {
+  local template="$1"
+  wget -nc "https://download.cloudstack.org/templates/mbx/$template.qcow2" -O "$ROOT/templates/$template.qcow2" || true
+  virsh define "$ROOT/templates/xmls/mbxt-$template.xml" >/dev/null
+}
+
+initialize_network() {
+  if network_exists "monkeynet"; then
+    echo "'monkeynet' network is already defined, skipped re-initialization"
   else
     virsh net-destroy monkeynet 2>/dev/null || true
     virsh net-undefine monkeynet 2>/dev/null || true
-    virsh net-define $ROOT/monkeynet.xml
+    virsh net-define "$ROOT/monkeynet.xml"
     virsh net-autostart monkeynet
     virsh net-start monkeynet
   fi
+}
+
+setup_sudoers_file() {
   echo "Setting up mbx sudoers file. Please enter sudoer password if you're prompted."
-  sudo cp $ROOT/files/sudoer.mbx /etc/sudoers.d/mbx
-  for template in $(virsh list --all | awk '{print $2}' | grep mbxt-); do
-    echo "Forgetting template: $template"
-    virsh undefine $template >/dev/null 2>/dev/null || true
-  done
-  echo "Updating templates"
-  for template in $(cat $ROOT/templates/md5sum.txt | awk '{print $2}' | sed 's/.qcow2//g'); do
+  sudo cp "$ROOT/files/sudoer.mbx" /etc/sudoers.d/mbx
+}
+
+update_templates() {
+  for template in $(cat "$ROOT/templates/md5sum.txt" | awk '{print $2}' | sed 's/.qcow2//g'); do
     echo "Updating template: $template"
-    wget -nc https://download.cloudstack.org/templates/mbx/$template.qcow2 -O $ROOT/templates/$template.qcow2 || true
-    virsh define $ROOT/templates/xmls/mbxt-$template.xml >/dev/null
+    download_and_verify_template "$template"
   done
   echo "Running md5 checksum checks on templates (this may take some time...)"
-  (cd $ROOT/templates && md5sum --check md5sum.txt)
-  sudo cp $ROOT/files/libvhd.so.1.0 /usr/lib/
+  (cd "$ROOT/templates" && md5sum --check md5sum.txt)
+}
+
+init() {
+  initialize_network
+  setup_sudoers_file
+
+  for template in $(virsh list --all | awk '{print $2}' | grep mbxt-); do
+    echo "Forgetting template: $template"
+    virsh undefine "$template" >/dev/null 2>/dev/null || true
+  done
+
+  echo "Updating templates"
+  update_templates
+
+  sudo cp "$ROOT/files/libvhd.so.1.0" /usr/lib/
   sudo ldconfig
-  sudo cp $ROOT/files/vhd-util /usr/bin/
+  sudo cp "$ROOT/files/vhd-util" /usr/bin/
 }
 
 list() {
   echo
-  for env in $(cat $ROOT/boxes/boxes.list); do
+  for env in $(cat "$ROOT/boxes/boxes.list"); do
     echo -e "Name: \033[4m$env\033[0m"
-    for vm in $(cat $ROOT/boxes/$env/list); do
-      ip=$(getent hosts $vm | awk '{ print $1 }')
+    for vm in $(cat "$ROOT/boxes/$env/list"); do
+      ip=$(getent hosts "$vm" | awk '{ print $1 }')
       url=""
-      if [[ $vm == *"mgmt"* ]]; then
-        url="http://$ip:8080/client"
-      fi
+      [[ $vm == *"mgmt"* ]] && url="http://$ip:8080/client"
       echo -e "$vm\t$ip\t$url"
       if [[ $vm == *vmw-host1* ]]; then
-        vcip=$(sshpass -p 'P@ssword123' ssh -o "ConnectTimeout=1" -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@$vm vim-cmd "vmsvc/get.guest 1 | grep ipAddress | head -1 | sed 's/.*ipAddress = \"//g' | sed 's/\".*//g'" 2> /dev/null) || true
+        vcip=$(sshpass -p 'P@ssword123' ssh -o "ConnectTimeout=1" -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" root@"$vm" vim-cmd "vmsvc/get.guest 1 | grep ipAddress | head -1 | sed 's/.*ipAddress = \"//g' | sed 's/\".*//g'" 2> /dev/null) || true
         echo -e "$env-vcsvr\t$vcip\thttps://$vcip/"
       fi
     done
     echo
-    options+=($env)
   done
-  if [ ${#options[@]} -eq 0 ]; then
-    echo -e "No mbx environments found\n"
-  fi
+
   echo "Following mbx templates are available:"
   virsh list --all | grep mbxt- | awk '{print $2}'
 }
 
-package() {
-  if [[ "$1" == "-h" ]]; then
-    echo "Usage: mbx package <repo url> <tag|sha|branch name|pr number> <option distro: centos7/centos8/debian>"
-    exit 0
-  fi
+parse_args() {
+  local COMMAND
+  local OPTIONS
+  local PARSED_ARGS
 
-  echo "This feature likely broken, run at your own risk"
+  COMMAND="$1"
+  shift
 
-  url="${1:-apache/cloudstack}"
-  echo $url | egrep "^https?://" || url="https://github.com/$url"
-  tag="${2:-master}"
-  distro="${3:-centos7}"
-
-  re='^[0-9]+$'
-  [[ $tag =~ $re ]] && pr_id=$tag && output_dir="${output_dir:=/export/testing/builds/pr/$tag/$distro}"
-  output_dir="${output_dir:=/export/testing/builds/$tag/$distro}"
-
-  CUR=$(pwd)
-  uuid=$(uuid)
-  packaging_dir="/tmp/mbx/cloudstack/$uuid"
-
-  echo "Pulling $url:$tag to $packaging_dir"
-  mkdir -p $packaging_dir
-  cd $packaging_dir
-
-  git init $(pwd)
-  git fetch --tags --progress $url --depth 1 +refs/heads/*:refs/remotes/origin/* > /dev/null
-  git config remote.origin.url $url
-  git config --add remote.origin.fetch +refs/heads/*:refs/remotes/origin/*
-  git checkout $tag
-
-  cd $CUR
-
-  # TODO: Build all simultaniously
-  case "$distro" in
-    centos7) image_name="shapeblue/centos7-cloudstack-builder";;
-    centos8) image_name="shapeblue/centos7-cloudstack-builder";;
-    debian) image_name="shapeblue/ubuntu-cloudstack-builder";;
-    *) echo "Unknown distro" && exit 1;;
+  case "$COMMAND" in
+    init|list|test)
+      OPTIONS=$(getopt -o h --long help -- "$@")
+      ;;
+    package|deploy|dev|agentscp|ssh|stop|start|destroy)
+      OPTIONS=$(getopt -o h --long help -- "$@")
+      ;;
+    launch)
+      OPTIONS=$(getopt -o h --long help -- "$@")
+      ;;
+    *)
+      usage
+      exit 1
+      ;;
   esac
 
-  echo "Pulling docker build container image $image_name"
-  docker pull $image_name
-
-  echo "Building packages for $distro"
-  uuid=`uuid`
-  container_name="builder-$uuid"
-
-  rm -rf $output_dir || true
-
-  docker run -d -v $packaging_dir:/jenkins -v $output_dir:/output  --name $container_name $image_name /usr/sbin/sshd -D -p 22
-  builder_ip=`docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' $container_name `
-
-  iscp files/build.sh root@$builder_ip://jenkins/build.sh
-  issh root@$builder_ip \
-    PR_ID=$pr_id ACS_BRANCH=$tag DISTRO=$distro bash -x /jenkins/build.sh
-
-  echo "Packages can be found at $output_dir"
-
-  docker kill $container_name
-  docker rm $container_name
-  rm -rf $packaging_dir || true
-}
-
-check_mbxt() {
-  if ! virsh list --all | grep mbxt-| grep -q $2; then
-    echo "Provided $1 template $2 not found, run 'mbx list' to see list of valid templates"
-    exit 1
-  fi
-}
-
-issh() {
-  sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" -o "LogLevel=ERROR" $@
-}
-
-iscp() {
-  sshpass -p 'P@ssword123' scp -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" -o "LogLevel=ERROR" $@
-}
-
-seed_systemvmtemplate() {
-  version=$1
-  hypervisor=$2
-  sstore_path=$3
-  cache_path=/export/monkeybox/templates/cache/$version/$hypervisor
-  url=$(cat $ROOT/files/systemvm-map.json | jq -r ".[\"${version}\"].${hypervisor}.url")
-  checksum=$(cat $ROOT/files/systemvm-map.json | jq -r ".[\"${version}\"].${hypervisor}.checksum")
-  template_path=$cache_path/${url##*/}
-  mkdir -p $cache_path
-  wget -nc $url -O $template_path || true
-  if [[ "$(md5sum $template_path | awk '{print $1}')" != "$checksum" ]]; then
-    rm -f $template_path
-    echo "The systemvmtemplate cache is invalid, removed old cache, please re-run launch command"
-    exit 1
-  fi
-  echo "Seeding v$version systemvmtemplate for '$hypervisor' at $sstore_path"
-  if [[ "$hypervisor" == "xen" || "$hypervisor" == "xcp" ]]; then
-    hypervisor="xenserver"
-  fi
-  if [[ "$hypervisor" == "vmw" ]]; then
-    hypervisor="vmware"
-  fi
-  sudo /export/monkeybox/files/setup-systemvmtemplate.sh -m $sstore_path -f $template_path -h $hypervisor -F
-}
-
-deploy() {
-  if [[ "$1" == "-h" ]]; then
-    echo "Usage: mbx deploy <name of env> <mgmt server template> <hypervisor template> <repo url>"
-    exit 0
-  fi
-
-  id=
-  for idx in {1..20}; do
-    if ! grep -q qa$idx- $ROOT/boxes/boxes.list; then
-      id=$idx
-      break
-    fi
-  done
-  if [ -z $id ]; then
-    echo "Unable to deploy an env, all 20 slots full"
-    exit 1
-  fi
-
-  name=${1:-"mbx-cs418"}
-  mst=${2:-"mbxt-kvm-el7"}
-  hyt=${3:-"mbxt-kvm-el7"}
-  # Validate templates
-  check_mbxt mgmt $mst
-  check_mbxt hypervisor $hyt
-  hypervisor=$(echo $hyt |  awk '{print substr($0,6,3)}')
-  repo=${4:-"http://packages.shapeblue.com/cloudstack/upstream/el7/4.18"}
-
-  uuid=$(cat /proc/sys/kernel/random/uuid | sed 's/-.*//g')
-  env="qa$id-$name-$uuid-$hypervisor"
-
-  echo -e "Building env with name: \033[4m$env\033[0m"
-  echo "Management server template: $mst"
-  echo "Hypervisor template: $hyt"
-  echo "Package repo: $repo"
-
-  mkdir -p $ROOT/boxes/$env
-  echo $env >> $ROOT/boxes/boxes.list
-
-  # Clone mgmt server
-  virt-clone --original $mst --name $env-mgmt1 --file $ROOT/boxes/$env/$env-mgmt1.qcow2
-  echo $env-mgmt1 >> $ROOT/boxes/$env/list
-  virsh setmaxmem $env-mgmt1 4G --config
-
-  # Clone hypervisor host1
-  virt-clone --original $hyt --name $env-host1 --file $ROOT/boxes/$env/$env-host1.qcow2
-  echo $env-host1 >> $ROOT/boxes/$env/list
-  virsh setmaxmem $env-host1 8G --config
-  if [[ "$hypervisor" == "vmw" ]]; then
-    # VC runs on 1st ESXi host
-    virsh setmaxmem $env-host1 20G --config
-  fi
-
-  # Clone hypervisor host2
-  virt-clone --original $hyt --name $env-host2 --file $ROOT/boxes/$env/$env-host2.qcow2
-  echo $env-host2 >> $ROOT/boxes/$env/list
-  virsh setmaxmem $env-host2 8G --config
-
-  echo "Starting VMs"
-  for domain in $(cat $ROOT/boxes/$env/list); do virsh start $domain; done;
-
-  echo "Creating primary and secondary storage folders"
-  sudo mkdir -p /export/testing/$env/{primary1,primary2,secondary}
-  sync
-
-  echo "Waiting for hosts to boot... (this can take a few minutes)"
-  sleep 60
-  for box in $(cat $ROOT/boxes/$env/list); do
-    echo "Configuring host $box"
-    ip=$(getent hosts $box | awk '{ print $1 }')
-    while [ -z $ip ]; do
-      echo "Waiting for $box DHCP to kick-in..."
-      sleep 10
-      ip=$(getent hosts $box | awk '{ print $1 }')
-    done
-    while ! nc -vzw 10 $ip 22 2>&1 > /dev/null; do
-      echo "Waiting for ssh on $box ($ip) to come up"; sleep 10;
-      ip=$(getent hosts $box | awk '{ print $1 }')
-    done
-    echo "$box is UP"
-    sleep 5
-
-    # KVM and mgmt server
-    if [[ "$hypervisor" == "kvm" || "$hypervisor" == "xen" || "$hypervisor" == "xcp" || "$box" == "$env-mgmt1" ]]; then
-      # EL8/Alma Linux8 fix: dnf upgrade almalinux-release
-      issh root@$box hostnamectl set-hostname $box
-      issh root@$box "echo $ip $box >> /etc/hosts"
-      issh root@$box "cat /etc/hosts"
-      echo "$box hostname fixed"
-    fi
-
-    # VMware: Start VC
-    if [[ "$hypervisor" == "vmw" && "$box" == "$env-host1" ]]; then
-      sleep 30
-      vcmac=$( (date; cat /proc/interrupts) | md5sum | sed -r 's/^(.{4}).*$/\1/;s/([0-9a-f]{2})/\1:/g;s/^/00:50:56:00:/;s/:$//' )
-      if [[ "$hyt" == "mbxt-vmware67u3" ]]; then
-        issh root@$box "echo 'ethernet0.addressType = \"static\"' >> /vmfs/volumes/datastore1/VC67/VC67.vmx" || true
-        issh root@$box "echo 'ethernet0.address = \"${vcmac}\"' >> /vmfs/volumes/datastore1/VC67/VC67.vmx" || true
-      else
-        issh root@$box "echo 'ethernet0.addressType = \"static\"' >> /vmfs/volumes/datastore1/VC/VC.vmx" || true
-        issh root@$box "echo 'ethernet0.address = \"${vcmac}\"' >> /vmfs/volumes/datastore1/VC/VC.vmx" || true
-      fi
-      issh root@$box vim-cmd vmsvc/getallvms
-      issh root@$box vim-cmd vmsvc/power.on 1
-      issh root@$box vim-cmd hostsvc/advopt/update Config.HostAgent.plugins.solo.enableMob bool true 
-      issh root@$box vim-cmd hostsvc/net/vswitch_setpolicy --securepolicy-promisc=false vSwitch0
-      issh root@$box vim-cmd hostsvc/net/vswitch_setpolicy --securepolicy-macchange=true vSwitch0
-      issh root@$box vim-cmd hostsvc/net/vswitch_setpolicy --securepolicy-forgedxmit=true vSwitch0
-      echo "VC started, VMware host1 configured"
-    fi
-    if [[ "$hypervisor" == "vmw" && "$box" == "$env-host2" ]]; then
-      sleep 10
-      issh root@$box vim-cmd vmsvc/unregister 1
-      issh root@$box vim-cmd vmsvc/getallvms
-      issh root@$box vim-cmd hostsvc/datastore/remove datastore1
-      issh root@$box vim-cmd hostsvc/advopt/update Config.HostAgent.plugins.solo.enableMob bool true
-      issh root@$box vim-cmd hostsvc/net/vswitch_setpolicy --securepolicy-promisc=false vSwitch0
-      issh root@$box vim-cmd hostsvc/net/vswitch_setpolicy --securepolicy-macchange=true vSwitch0
-      issh root@$box vim-cmd hostsvc/net/vswitch_setpolicy --securepolicy-forgedxmit=true vSwitch0
-      echo "VMware host2 cleaned and configured"
-    fi
-
-    # XenServer: Make hosts unique
-    if [[ "$hypervisor" == "xen" || "$hypervisor" == "xcp" ]]; then
-      if [[ "$box" == "$env-host1" ]]; then
-        sleep 30 # wait for xapi to come up
-        issh root@$box "xe host-param-set uuid=\$(xe host-list params=uuid|awk {'print \$5'} | head -n 1) name-label=$env-host1"
-      fi
-      if [[ "$box" == "$env-host2" ]]; then
-        iscp $ROOT/files/xenfix.sh root@$box:/root/
-        sshpass -p 'P@ssword123' ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" -o "ServerAliveInterval 2" root@$box "bash -x /root/xenfix.sh" || true
-      fi
-    fi
-  done
-
-  # Setup Management Server
-  msip=$(getent hosts $env-mgmt1 | awk '{ print $1 }')
-  # Fix EL repo
-  issh root@$msip "sed -i '/^baseurl=.*/d' /etc/yum.repos.d/cloudstack.repo && echo baseurl=$repo >> /etc/yum.repos.d/cloudstack.repo"
-  issh root@$msip "systemctl enable --now mariadb" || true # for EL7
-  issh root@$msip "systemctl enable --now mysqld"  || true # for EL8
-  issh root@$msip yum clean all
-  issh root@$msip rpm --import https://repo.almalinux.org/almalinux/RPM-GPG-KEY-AlmaLinux-8
-  issh root@$msip yum install -y python3-pip
-  issh root@$msip "pip3 install --upgrade pip && pip3 install --ignore-installed netaddr mysql-connector-python==8.0.20" || true
-  issh root@$msip "pip2 install --upgrade pip && pip2 install --ignore-installed netaddr mysql-connector-python==8.0.20" || true
-  issh root@$msip yum install -y cloudstack-management cloudstack-usage cloudstack-common cloudstack-integration-tests cloudstack-marvin tar tzdata-java
-  issh root@$msip "cloudstack-setup-databases cloud:cloud@localhost --deploy-as=root: -i $msip"
-  issh root@$msip "mysql -u root --execute=\"INSERT INTO cloud.configuration (category, instance, component, name, value) VALUES ('Advanced', 'DEFAULT', 'management-server', 'integration.api.port', '8096');\""
-  issh root@$msip cloudstack-setup-management
-
-  # Setup KVM hosts
-  if [[ $hypervisor == "kvm" ]]; then
-    # Fix EL7 repo
-    issh root@$env-host1 yum clean all
-    issh root@$env-host1 rpm --import https://repo.almalinux.org/almalinux/RPM-GPG-KEY-AlmaLinux-8
-    issh root@$env-host1 "sed -i '/^baseurl=.*/d' /etc/yum.repos.d/cloudstack.repo && echo baseurl=$repo >> /etc/yum.repos.d/cloudstack.repo"
-    issh root@$env-host1 yum install -y cloudstack-agent
-    # Fix EL7 repo
-    issh root@$env-host2 "sed -i '/^baseurl=.*/d' /etc/yum.repos.d/cloudstack.repo && echo baseurl=$repo >> /etc/yum.repos.d/cloudstack.repo"
-    issh root@$env-host2 yum clean all
-    issh root@$env-host2 rpm --import https://repo.almalinux.org/almalinux/RPM-GPG-KEY-AlmaLinux-8
-    issh root@$env-host2 yum install -y cloudstack-agent
-    # Install qemu-kvm-ev on EL7
-    if [[ "$hyt" == "mbxt-kvm-el7" ]]; then
-      issh root@$env-host1 "yum install -y centos-release-qemu-ev && yum install -y qemu-kvm-ev"
-      issh root@$env-host2 "yum install -y centos-release-qemu-ev && yum install -y qemu-kvm-ev"
-    fi
-    # Fix host reserved memory
-    issh root@$env-host1 "echo host.reserved.mem.mb=512 >> /etc/cloudstack/agent/agent.properties"
-    issh root@$env-host2 "echo host.reserved.mem.mb=512 >> /etc/cloudstack/agent/agent.properties"
-  fi
-
-  # Setup xen/xcp hosts
-  if [[ $hypervisor == "xen" || $hypervisor == "xcp" ]]; then
-    masterip=$(getent hosts $env-host1 | awk '{ print $1 }')
-    issh root@$env-host1 "xe pool-param-set name-label=${env}1 uuid=\$(xe pool-list --minimal)"
-    issh root@$env-host2 "xe pool-join master-address=${masterip} master-username=root master-password=P@ssword123"
-  fi
-
-  # Generate marvin config
-  msip=$(getent hosts $env-mgmt1 | awk '{ print $1 }')
-  export vlan="$(echo $id*100|bc)-$(echo $id*100+99|bc)"
-  export public_start="172.20.$id.1"
-  export public_end="172.20.$id.125"
-  export pod_start="172.20.$id.126"
-  export pod_end="172.20.$id.250"
-  export host1=$(getent hosts $env-host1 | awk '{ print $1 }')
-  export host2=$(getent hosts $env-host2 | awk '{ print $1 }')
-  export storage_path="/export/testing/$env"
-
-  if [[ $hypervisor == "xcp" ]]; then
-    hypervisor="xen"
-  fi
-  echo $hypervisor > $ROOT/boxes/$env/hypervisor
-
-  # Find VC IP
-  export vcip=
-  if [[ $hypervisor == "vmw" ]]; then
-    while : ; do
-      vcip=$(issh root@$env-host1 vim-cmd "vmsvc/get.guest 1 | grep ipAddress | head -1 | sed 's/.*ipAddress = \"//g' | sed 's/\".*//g'")
-      if [[ "$vcip" == *"unset"* ]]; then
-        echo "Waiting for VC to be UP"
-        sleep 5
-      else
-        echo "VC IP found: $vcip"
+  eval set -- "$OPTIONS"
+  while true; do
+    case "$1" in
+      -h|--help)
+        usage
+        exit 0
+        ;;
+      --)
+        shift
         break
-      fi
-    done
-    while [[ "$(curl -sL -w '%{http_code}' https://${vcip}/sdk/vimService.wsdl --insecure -o /dev/null)" != "200" ]]; do
-      echo "Waiting for VC vim service to be UP"
-      sleep 10
-    done
-    sleep 10
-    # Check vim service and add hosts cluster
-    $ROOT/files/govc cluster.add -k=true -u=https://administrator@vsphere.local:P@ssword123@$vcip/sdk -cluster "/DC/host/Cluster" -noverify -force -hostname $host1 -username root -password P@ssword123
-    $ROOT/files/govc cluster.add -k=true -u=https://administrator@vsphere.local:P@ssword123@$vcip/sdk -cluster "/DC/host/Cluster" -noverify -force -hostname $host2 -username root -password P@ssword123
-    echo "Before launching zone, open the VC web UI and reset any warning on the ESXi hosts by clicking 'Reset to Green'"
-  fi
-
-  envsubst < $ROOT/marvin/$hypervisor.cfg > $ROOT/boxes/$env/marvin.cfg
-  echo "VMs deployed and marvin config generated, to launch zone run:"
-  echo "  mbx launch $env"
-}
-
-launch() {
-  env=$1
-  if [ -z $env ]; then
-    echo "Please provide a valid env name, run 'mbx list' to find name of environments"
-    exit 1
-  fi
-  echo "Launching CloudStack Zone in the environment:"
-  id=$(echo $env | sed 's/^qa//g' | sed 's/-.*$//g')
-  echo "Processing marvin config for env ID $id"
-
-  msip=$(getent hosts $env-mgmt1 | awk '{ print $1 }')
-  iscp $ROOT/boxes/$env/marvin.cfg root@$msip:/marvin/
-  iscp $ROOT/files/smoketests.sh root@$msip:/marvin/
-  iscp $ROOT/files/result.py root@$msip:/marvin/
-  while ! nc -vzw 5 $msip 8096 2>&1 > /dev/null; do echo "Waiting for management server to come up..."; sleep 10; done
-  issh root@$msip systemctl start cloudstack-usage
-  issh root@$msip "mysql -u root --execute=\"UPDATE cloud.service_offering set ram_size=512 where vm_type='consoleproxy';\""
-  echo "Management server is UP now, launching data center now"
-
-  version=$(curl -Ss http://$msip:8080/client/api 2>&1 | sed 's/.*version="//g' | sed 's/".*//g' | sed 's/-SNAPSHOT//g' | grep -Po '4.[\d]*')
-  if [[ $(echo $version | sed 's/4.//g') -gt 15 ]]; then
-    issh root@$msip "pip3 uninstall -y Marvin" || true
-    issh root@$msip "cd /usr/share/cloudstack-marvin && tar zxf Marvin*.tar.gz && mv Marvin*.tar.gz archive-marvin.tar.gz && sed -i 's/-SNAPSHOT//g' Marvin-*/setup.py"
-    issh root@$msip "pip3 install --ignore-installed /usr/share/cloudstack-marvin/Marvin-*/"
-    issh root@$msip "pip3 install --ignore-installed mysql-connector-python==8.0.20" || true
-    issh root@$msip "cd /marvin && ln -sf /usr/share/cloudstack-integration-tests tests" || true
-    issh root@$msip "python3 -m marvin.deployDataCenter -i /marvin/marvin.cfg"
-  else
-    if echo "4.9 4.11 4.12 4.13 4.14 4.15" | grep -w $version > /dev/null; then
-      hypervisor=$(cat $ROOT/boxes/$env/hypervisor)
-      seed_systemvmtemplate $version $hypervisor /export/testing/$env/secondary
-    else
-        echo "Unsupported ACS version $version, please manually seed the systemvmtemplate and deploy the zone"
+        ;;
+      *)
+        echo "Unknown option: $1"
+        usage
         exit 1
-    fi
-    issh root@$msip "pip2 install /usr/share/cloudstack-marvin/Marvin*.tar.gz"
-    issh root@$msip "python /usr/lib/python2.7/site-packages/marvin/deployDataCenter.py -i /marvin/marvin.cfg"
-  fi
-  echo "Launched zone: http://$msip:8080/client"
-}
-
-test() {
-  set +x
-  echo "Please ssh into the env and run: cd /marvin; bash -x smoketests.sh"
-  for env in  $(cat $ROOT/boxes/boxes.list); do
-    for vm in $(cat $ROOT/boxes/$env/list| grep mgmt1); do
-      echo "$env: ssh root@$vm"
-    done
+        ;;
+    esac
   done
+
+  PARSED_ARGS=("$@")
+  execute_command "$COMMAND" "${PARSED_ARGS[@]}"
 }
 
-dev() {
-  if [[ "$1" == "-h" ]]; then
-    echo "Usage: mbx dev <name of env> <hypervisor template>"
-    exit 0
-  fi
+execute_command() {
+  local COMMAND="$1"
+  shift
 
-  set -x
-  id=
-  for idx in {1..9}; do
-    if ! grep -q qa$idx- $ROOT/boxes/boxes.list; then
-      id=$idx
-      break
-    fi
-  done
-  if [ -z $id ]; then
-    echo "Unable to deploy an env, all 20 slots full"
-    exit 1
-  fi
-
-  name=${1:-"mbx-dev"}
-  hyt=${2:-"mbxt-kvm-el7"}
-  # Validate input templates
-  check_mbxt hypervisor $hyt
-
-  hypervisor=$(echo $hyt |  awk '{print substr($0,6,3)}')
-  env="dev$id-$name-$hypervisor"
-
-  echo -e "Building dev env with name: \033[4m$env\033[0m"
-  echo "Hypervisor template: $hyt"
-
-  mkdir -p $ROOT/boxes/$env
-  # Save env name
-  echo $env >> $ROOT/boxes/boxes.list
-
-  # Clone hypervisor
-  virt-clone --original $hyt --name $env-host1 --file $ROOT/boxes/$env/$env-host1.qcow2
-  echo $env-host1 >> $ROOT/boxes/$env/list
-  virsh setmaxmem $env-host1 8G --config
-  if [[ "$hypervisor" == "vmw" ]]; then
-    virsh setmaxmem $env-host1 18G --config
-  fi
-
-  echo "Starting VMs"
-  for domain in $(cat $ROOT/boxes/$env/list); do virsh start $domain; done;
-
-  echo "Creating primary and secondary storage folders"
-  sudo mkdir -p /export/testing/$env/{primary1,primary2,secondary}
-  sync
-
-  echo "Waiting for dev host to boot"
-  sleep 60
-  for box in $(cat $ROOT/boxes/$env/list); do
-    echo "Configuring host $box"
-    ip=$(getent hosts $box | awk '{ print $1 }')
-    while [ -z $ip ]; do
-      echo "Waiting for $box DHCP to kick-in..."
-      sleep 10
-      ip=$(getent hosts $box | awk '{ print $1 }')
-    done
-    while ! nc -vzw 10 $ip 22 2>&1 > /dev/null; do echo "Waiting for ssh on $box ($ip) to come up"; sleep 10; done
-    echo "$box is UP"
-    sleep 5
-    # KVM or XenServer/XCP-ng host
-    if [[ "$hypervisor" == "kvm" || "$hypervisor" == "xen" || "$hypervisor" == "xcp" ]]; then
-      issh root@$box hostnamectl set-hostname $box
-      issh root@$box "echo $ip $box >> /etc/hosts"
-      issh root@$box "cat /etc/hosts"
-      echo "$box hostname fixed"
-    fi
-    # VMware: Start VC
-    if [[ "$hypervisor" == "vmw" && "$box" == "$env-host1" ]]; then
-      vcmac=$( (date; cat /proc/interrupts) | md5sum | sed -r 's/^(.{4}).*$/\1/;s/([0-9a-f]{2})/\1:/g;s/^/00:0c:29:e1:/;s/:$//' )
-      if [[ "$hyt" == "mbxt-vmware67u3" ]]; then
-        issh root@$box "echo 'ethernet0.addressType = \"static\"' >> /vmfs/volumes/datastore1/VC67/VC67.vmx" || true
-        issh root@$box "echo 'ethernet0.address = \"${vcmac}\"' >> /vmfs/volumes/datastore1/VC67/VC67.vmx" || true
-      else
-        issh root@$box "echo 'ethernet0.addressType = \"static\"' >> /vmfs/volumes/datastore1/VC/VC.vmx" || true
-        issh root@$box "echo 'ethernet0.address = \"${vcmac}\"' >> /vmfs/volumes/datastore1/VC/VC.vmx" || true
-      fi
-      issh root@$box vim-cmd vmsvc/getallvms
-      issh root@$box vim-cmd vmsvc/power.on 1
-      echo "VC started"
-    fi
-    # XenServer: Make hosts unique
-    if [[ "$hypervisor" == "xen" || "$hypervisor" == "xcp" ]]; then
-      if [[ "$box" == "$env-host1" ]]; then
-        issh root@$box "xe host-param-set uuid=\$(xe host-list params=uuid|awk {'print \$5'} | head -n 1) name-label=$env-host1"
-      fi
-    fi
-  done
-  # Setup KVM hosts
-  if [[ $hypervisor == "kvm" ]]; then
-    issh root@$env-host1 "echo host.reserved.mem.mb=512 >> /etc/cloudstack/agent/agent.properties"
-    issh root@$env-host1 "yum install -y openssh-clients java-11-openjdk libvirt bridge-utils ebtables iptables ethtool net-tools iproute ipset perl python36-libvirt qemu-img qemu-kvm python python3 python3-pip"
-  fi
-  # Setup xen/xcp hosts
-  if [[ $hypervisor == "xen" || $hypervisor == "xcp" ]]; then
-    masterip=$(getent hosts $env-host1 | awk '{ print $1 }')
-    issh root@$env-host1 "xe pool-param-set name-label=${env}1 uuid=\$(xe pool-list --minimal)"
-  fi
-
-  # Generate marvin config
-  msip="172.20.0.1"
-  export vlan="$(echo $id*100|bc)-$(echo $id*100+99|bc)"
-  export public_start="172.20.$id.1"
-  export public_end="172.20.$id.125"
-  export pod_start="172.20.$id.126"
-  export pod_end="172.20.$id.250"
-  export host1=$(getent hosts $env-host1 | awk '{ print $1 }')
-  export host2="host2"
-  export storage_path="/export/testing/$env"
-
-  if [[ $hypervisor == "xcp" ]]; then
-    hypervisor="xen"
-  fi
-
-  # Find VC IP
-  export vcip=
-  if [[ $hypervisor == "vmw" ]]; then
-    while : ; do
-      vcip=$(issh root@$env-host1 vim-cmd "vmsvc/get.guest 1 | grep ipAddress | head -1 | sed 's/.*ipAddress = \"//g' | sed 's/\".*//g'")
-      if [[ "$vcip" == *"unset"* ]]; then
-        echo "Waiting for VC to be UP"
-        sleep 5
-      else
-        echo "VC IP found: $vcip"
-        break
-      fi
-    done
-    while [[ "$(curl -sL -w '%{http_code}' https://${vcip}/sdk/vimService.wsdl --insecure -o /dev/null)" != "200" ]]; do
-      echo "Waiting for VC vim service to be UP"
-      sleep 5
-    done
-    # Check vim service and add hosts cluster
-    $ROOT/files/govc cluster.add -k=true -u=https://administrator@vsphere.local:P@ssword123@$vcip/sdk -cluster "/DC/host/Cluster" -noverify -force -hostname $host1 -username root -password P@ssword123
-    echo "Before launching zone, open the VC web UI and reset any warning on the ESXi hosts by clicking 'Reset to Green'"
-  fi
-
-  envsubst < $ROOT/marvin/$hypervisor.cfg > $ROOT/boxes/$env/marvin.cfg
-  jq "del(.zones|.[0].pods|.[0].clusters|.[0].hosts[1])" $ROOT/boxes/$env/marvin.cfg > /dev/null
-  echo "Marvin cfg file: $ROOT/boxes/$env/marvin.cfg"
-  echo "Deploy CloudStack db, start jetty using mvn, install/upgrade Marvin and then launch zone using:"
-  echo "  python3 tools/marvin/marvin/deployDataCenter.py -i $ROOT/boxes/$env/marvin.cfg"
+  case "$COMMAND" in
+    init) init ;;
+    list) list ;;
+    package) package "$@" ;;
+    deploy) deploy "$@" ;;
+    launch) launch "$@" ;;
+    test) test ;;
+    dev) dev "$@" ;;
+    agentscp) agentscp "$@" ;;
+    ssh) ssh_into_vm "$@" ;;
+    stop) stop "$@" ;;
+    start) start "$@" ;;
+    destroy) destroy "$@" ;;
+    *) usage ;;
+  esac
 }
 
-agentscp() {
-  if [[ "$1" == "-h" ]]; then
-    echo "Usage: mbx agentscp <KVM host IP>"
-    exit 0
-  fi
-
-  set -x
-  kvm_host=$1
-  CUR=$PWD
-  echo "[acs agent] Syncing KVM agent changes from development folder to host: $kvm_host"
-  issh root@$kvm_host "mkdir -p /etc/cloudstack/agent/ /usr/share/cloudstack-common/{lib,scripts,vms} /usr/share/cloudstack-agent/{lib,plugins} /var/log/cloudstack/agent/"
-  issh root@$kvm_host "echo 'paths.pid=/var/run' > /etc/cloudstack/agent/environment.properties; echo 'paths.script=/usr/share/cloudstack-common' >> /etc/cloudstack/agent/environment.properties"
-
-  echo "[acs agent] Syncing python lib changes to host: $kvm_host"
-  iscp -r $CUR/python/lib/* root@$kvm_host:/usr/lib64/python2.7/site-packages/ 2>/dev/null || true
-  iscp -r $CUR/python/lib/* root@$kvm_host:/usr/lib64/python3.6/site-packages/ 2>/dev/null || true
-
-  echo "[acs agent] Syncing scripts"
-  iscp -r $CUR/scripts/* root@$kvm_host:/usr/share/cloudstack-common/scripts/
-
-  echo "[acs agent] Syncing kvm hypervisor jars"
-  issh root@$kvm_host "rm -f /usr/share/cloudstack-agent/lib/*"
-  iscp -r $CUR/plugins/hypervisors/kvm/target/*jar root@$kvm_host:/usr/share/cloudstack-agent/lib/
-  iscp -r $CUR/plugins/hypervisors/kvm/target/dependencies/*jar root@$kvm_host:/usr/share/cloudstack-agent/lib/
-
-  echo "[acs agent] Syncing cloudstack-agent config and scripts"
-  iscp $CUR/agent/target/transformed/log4j-cloud.xml root@$kvm_host:/etc/cloudstack/agent/
-  issh root@$kvm_host "sed -i 's/INFO/DEBUG/g' /etc/cloudstack/agent/log4j-cloud.xml; sed -i 's/logs\/agent.log/\/var\/log\/cloudstack\/agent\/agent.log/g' /etc/cloudstack/agent/log4j-cloud.xml"
-  iscp $CUR/agent/target/transformed/libvirtqemuhook root@$kvm_host:/usr/share/cloudstack-agent/lib/
-  iscp $CUR/agent/target/transformed/rolling-maintenance root@$kvm_host:/usr/share/cloudstack-agent/lib/
-  iscp $CUR/packaging/systemd/cloudstack-agent.default root@$kvm_host:/etc/default/cloudstack-agent
-  iscp $CUR/agent/target/transformed/cloudstack-agent-profile.sh root@$kvm_host:/etc/profile.d/cloudstack-agent-profile.sh
-
-  iscp $CUR/agent/target/transformed/cloud-setup-agent root@$kvm_host:/usr/bin/cloudstack-setup-agent
-  issh root@$kvm_host "sed -i 's/@AGENTSYSCONFDIR@/\/etc\/cloudstack\/agent/g' /usr/bin/cloudstack-setup-agent"
-  iscp $CUR/agent/target/transformed/cloud-ssh root@$kvm_host:/usr/bin/cloudstack-ssh
-  iscp $CUR/agent/target/transformed/cloudstack-agent-upgrade root@$kvm_host:/usr/bin/cloudstack-agent-upgrade
-  issh root@$kvm_host "chmod +x /usr/bin/cloudstack*"
-
-  iscp $CUR/packaging/systemd/cloudstack-agent.service root@$kvm_host:/lib/systemd/system/
-  iscp $CUR/packaging/systemd/cloudstack-rolling-maintenance@.service root@$kvm_host:/lib/systemd/system/
-
-  issh  root@$kvm_host "systemctl daemon-reload && systemctl status cloudstack-agent && systemctl restart cloudstack-agent"
-
-  echo "[acs agent] Copied all files, KVM agent restarted!"
-}
-
-stop() {
-  env=$1
-  if [ -z "$env" ]; then
-    echo "Usage: mbx stop <env name>. Please pass a name, run 'mbx list' for list of available envs."
-    return
-  fi
-  sync
-  for vm in $(cat $ROOT/boxes/$env/list); do
-    sync
-    virsh destroy $vm 2>/dev/null || true
-  done
-}
-
-start() {
-  env=$1
-  if [ -z "$env" ]; then
-    echo "Usage: mbx start <env name>. Please pass a name, run 'mbx list' for list of available envs."
-    return
-  fi
-  for vm in $(cat $ROOT/boxes/$env/list); do
-    virsh start $vm 2>/dev/null || true;
-  done
-}
-
-destroy() {
-  env=$1
-  if [ -z "$env" ]; then
-    echo "Usage: mbx destroy <env name>. Please pass a name, run 'mbx list' for list of available envs."
-    return
-  fi
-  for vm in $(cat $ROOT/boxes/$env/list); do
-    virsh destroy $vm 2> /dev/null || true;
-    virsh undefine $vm;
-  done
-  sed -i "/$env/d" $ROOT/boxes/boxes.list
-  rm -fr $ROOT/boxes/$env
-  virsh pool-destroy $env || true
-  virsh pool-undefine $env || true
-  sync
-  sudo rm -fr /export/testing/$env
-}
-
-case "$1" in
-    help) usage;;
-    -h) usage;;
-    init) init;;
-    list) list;;
-    package) package ${@:2};;
-    deploy) deploy ${@:2};;
-    launch) launch $2;;
-    test) test;;
-    dev) dev ${@:2};;
-    agentscp) agentscp ${@:2};;
-    ssh) issh root@$2;;
-    start) start $2;;
-    stop) stop $2;;
-    destroy) destroy $2;;
-    *) usage;;
-esac
+parse_args "$@"
