@@ -340,7 +340,7 @@ deploy() {
   issh root@$msip "systemctl enable --now mariadb" || true # for EL7
   issh root@$msip "systemctl enable --now mysqld"  || true # for EL8
   issh root@$msip yum clean all
-  issh root@$msip rpm --import https://repo.almalinux.org/almalinux/RPM-GPG-KEY-AlmaLinux-8
+  issh root@$msip rpm --import https://repo.almalinux.org/almalinux/RPM-GPG-KEY-AlmaLinux-8 || true
   issh root@$msip yum install -y python3-pip
   issh root@$msip "pip3 install --upgrade pip && pip3 install --ignore-installed netaddr mysql-connector-python==8.0.20" || true
   issh root@$msip "pip2 install --upgrade pip && pip2 install --ignore-installed netaddr mysql-connector-python==8.0.20" || true
@@ -353,13 +353,13 @@ deploy() {
   if [[ $hypervisor == "kvm" ]]; then
     # Fix EL7 repo
     issh root@$env-host1 yum clean all
-    issh root@$env-host1 rpm --import https://repo.almalinux.org/almalinux/RPM-GPG-KEY-AlmaLinux-8
+    issh root@$env-host1 rpm --import https://repo.almalinux.org/almalinux/RPM-GPG-KEY-AlmaLinux-8 || true
     issh root@$env-host1 "sed -i '/^baseurl=.*/d' /etc/yum.repos.d/cloudstack.repo && echo baseurl=$repo >> /etc/yum.repos.d/cloudstack.repo"
     issh root@$env-host1 yum install -y cloudstack-agent
     # Fix EL7 repo
     issh root@$env-host2 "sed -i '/^baseurl=.*/d' /etc/yum.repos.d/cloudstack.repo && echo baseurl=$repo >> /etc/yum.repos.d/cloudstack.repo"
     issh root@$env-host2 yum clean all
-    issh root@$env-host2 rpm --import https://repo.almalinux.org/almalinux/RPM-GPG-KEY-AlmaLinux-8
+    issh root@$env-host2 rpm --import https://repo.almalinux.org/almalinux/RPM-GPG-KEY-AlmaLinux-8 || true
     issh root@$env-host2 yum install -y cloudstack-agent
     # Install qemu-kvm-ev on EL7
     if [[ "$hyt" == "mbxt-kvm-el7" ]]; then
