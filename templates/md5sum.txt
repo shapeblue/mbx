@@ -4,5 +4,6 @@
 1e52381c3f0f5a1f91a79c0e3a9edc22  vmware67u3.qcow2
 d67e523c507c4df1cf97ec53fbb38dfd  vmware7.qcow2
 5a0e2e8e7b4a93eef804b61b1caa5e47  vmware8.qcow2
+034a82228c1f6dc91e7864763747cd89  vmware8u3.qcow2
 ddb5a5c3110d58c931af2d12dd4ee756  xcpng82.qcow2
 15a63f3cb7d42d7fbd69f8aae2dc4c75  xenserver71.qcow2
