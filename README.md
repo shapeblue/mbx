@@ -539,6 +539,10 @@ using `agentscp` which will also restart the agent:
 
     $ agentscp 172.20.1.10
 
+To push new changes to your Managment server use:
+
+    $ mgmtscp 172.20.0.185
+
 Using IDEA IDE:
 - Import the `cloudstack` directory and select `Maven` as build system
 - Go through the defaults, in the profiles page at least select noredist, vmware
