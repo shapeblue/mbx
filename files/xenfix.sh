@@ -28,4 +28,5 @@ service xapi start
 rm -f /etc/openvswitch/conf.db*
 sleep 5
 xe host-param-set uuid=$(xe host-list params=uuid|awk {'print $5'} | head -n 1) name-label=$(hostname)
+xe pool-enable-tls-verification || true
 echo yes | /opt/xensource/bin/xe-reset-networking --device=eth0 --mode=dhcp
