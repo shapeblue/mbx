@@ -376,7 +376,7 @@ deploy() {
     masterip=$(getent hosts $env-host1 | awk '{ print $1 }')
     issh root@$env-host1 "xe pool-param-set name-label=${env}1 uuid=\$(xe pool-list --minimal)"
     issh root@$env-host2 "xe pool-join master-address=${masterip} master-username=root master-password=P@ssword123"
-    issh root@$env-host2 "create-guest-templates" || true
+    issh root@$env-host2 "create-guest-templates" 2>&1 > /dev/null || true
   fi
 
   # Generate marvin config
