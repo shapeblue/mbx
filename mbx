@@ -201,7 +201,7 @@ seed_systemvmtemplate() {
 
 deploy() {
   if [[ "$1" == "-h" ]]; then
-    echo "Usage: mbx deploy <name of env> <mgmt server template> <hypervisor template> <repo url>"
+    echo "Usage: mbx deploy <name of env> <mgmt server template> <hypervisor template> <repo url> [--hostcount=N]"
     exit 0
   fi
 
@@ -225,6 +225,25 @@ deploy() {
   check_mbxt hypervisor $hyt
   hypervisor=$(echo $hyt |  awk '{print substr($0,6,3)}')
   repo=${4:-"http://packages.shapeblue.com/cloudstack/upstream/el8/4.20"}
+  hostcount=2
+  # Parse additional named arguments
+  for arg in "${@:5}"; do
+      case $arg in
+          --hostcount=*)
+              hostcount="${arg#*=}"
+              ;;
+          *)
+              echo "Unknown argument: $arg"
+              exit 1
+              ;;
+      esac
+  done
+
+  # Validate hostcount is either 1 or 2
+  if ! [[ "$hostcount" =~ ^[1-2]$ ]]; then
+      echo "Invalid hostcount: $hostcount. Only 1 or 2 hosts are supported."
+      exit 1
+  fi
 
   uuid=$(cat /proc/sys/kernel/random/uuid | sed 's/-.*//g')
   env="qa$id-$name-$uuid-$hypervisor"
@@ -251,10 +270,12 @@ deploy() {
     virsh setmaxmem $env-host1 20G --config
   fi
 
-  # Clone hypervisor host2
-  virt-clone --original $hyt --name $env-host2 --file $ROOT/boxes/$env/$env-host2.qcow2 --check all=off
-  echo $env-host2 >> $ROOT/boxes/$env/list
-  virsh setmaxmem $env-host2 8G --config
+  if [[ "$hostcount" -eq 2 ]]; then
+    # Clone hypervisor host2
+    virt-clone --original $hyt --name $env-host2 --file $ROOT/boxes/$env/$env-host2.qcow2 --check all=off
+    echo $env-host2 >> $ROOT/boxes/$env/list
+    virsh setmaxmem $env-host2 8G --config
+  fi
 
   echo "Starting VMs"
   for domain in $(cat $ROOT/boxes/$env/list); do virsh start $domain; done;
