@@ -315,7 +315,7 @@ smoketests on them.
 
     mbx list
 
-2. To build packages using `mbx
+2. To build packages using `mbx`:
 
     mbx package --repo <repo, default: shapeblue/cloudstack> --tag <tag|branch|PR, default: main> --distro <distro - el7|el8|el9|debian, default: el8> --output-dir <output directory, default: /export/testing/builds> --flags <maven build flags, default: ''>
 
