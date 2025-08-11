@@ -105,11 +105,11 @@ The `mbx` environments, their configurations and VM disks are hosted at
 ## Compatibility
 
 Host requirements:
-- Ubuntu 22.04 LTS (recommended) or EL8/9**
+- Ubuntu 22.04/24.04 LTS (Ubuntu Recommended) or EL8/9**
 - Recommended 32GB RAM with Intel VT-x or AMD-V enabled 4+cores CPU
 - Uninstall any other hypervisor software (such as VMware workstation, VirtualBox)
 
-**Note: `mbx` has been tested and developed on Ubuntu 20.04 and 22.04 LTS; VMware environment require vmxnet3 which may not be supported on EL environments
+**Note: `mbx` has been tested and developed on Ubuntu 22.04 and 24.04 LTS; VMware environment require vmxnet3 which may not be supported on EL environments
 
 Supported Management Server (Templates):
 - EL7 (CentOS 7)
@@ -118,21 +118,19 @@ Supported Management Server (Templates):
 
 Supported Hypervisors (Templates):
 - KVM: EL7, EL8, EL9
-- VMware vSphere: 6.7u3, 7 (7.0u3), 8 (8.0)
-- XCP-ng: 8.2
-- XenServer: 7.1 LSTR
+- VMware vSphere: 6.7u3, 7 (7.0u3), 8 (8.0, 8u3)
+- XCP-ng: 8.2, 8.3
+- XenServer: 7.1 LSTR, 8.4
 
 Tested CloudStack versions:
 - 4.16
 - 4.17
 - 4.18
 
-- MBX QA environment deployment supported with CloudStack versions: 4.11 or later.
-- MBX development supported with CloudStack version 4.16 and later.
+- MBX QA & Development supported with CloudStack version 4.16 and later.
 - Smoketests supported CloudStack versions: 4.16 or later.
 
-Note: legacy CloudStack releases older than v4.11 that don't have
-`cloudstack-marvin` package will not work.
+Note: legacy CloudStack releases older than v4.16 will not work.
 
 Refer to https://docs.cloudstack.apache.org for CloudStack version-specific
 hypervisor and distro compatibility matrix.
