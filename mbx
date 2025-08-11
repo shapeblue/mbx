@@ -21,7 +21,7 @@ ROOT="$( cd "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )"
 mkdir -p $ROOT/boxes
 touch $ROOT/boxes/boxes.list
 export LIBVIRT_DEFAULT_URI="qemu:///system"
-echo MonkeyBox 🐵 v0.4
+echo MonkeyBox 🐵 v0.5-pre
 
 usage() {
   echo "Available commands are:"
