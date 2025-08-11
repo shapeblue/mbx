@@ -443,25 +443,14 @@ launch() {
   issh root@$msip "mysql -u root --execute=\"UPDATE cloud.service_offering set ram_size=512 where vm_type='consoleproxy';\""
   echo "Management server is UP now, launching data center now"
 
-  version=$(curl -Ss http://$msip:8080/client/api 2>&1 | sed 's/.*version="//g' | sed 's/".*//g' | sed 's/-SNAPSHOT//g' | grep -Po '4.[\d]*')
-  if [[ $(echo $version | sed 's/4.//g') -gt 15 ]]; then
-    issh root@$msip "pip3 uninstall -y Marvin" || true
-    issh root@$msip "cd /usr/share/cloudstack-marvin && tar zxf Marvin*.tar.gz && mv Marvin*.tar.gz archive-marvin.tar.gz && sed -i 's/-SNAPSHOT//g' Marvin-*/setup.py"
-    issh root@$msip "pip3 install --ignore-installed /usr/share/cloudstack-marvin/Marvin-*/"
-    issh root@$msip "pip3 install --ignore-installed mysql-connector-python==8.0.20" || true
-    issh root@$msip "cd /marvin && ln -sf /usr/share/cloudstack-integration-tests tests" || true
-    issh root@$msip "python3 -m marvin.deployDataCenter -i /marvin/marvin.cfg"
-  else
-    if echo "4.9 4.11 4.12 4.13 4.14 4.15" | grep -w $version > /dev/null; then
-      hypervisor=$(cat $ROOT/boxes/$env/hypervisor)
-      seed_systemvmtemplate $version $hypervisor /export/testing/$env/secondary
-    else
-        echo "Unsupported ACS version $version, please manually seed the systemvmtemplate and deploy the zone"
-        exit 1
-    fi
-    issh root@$msip "pip2 install /usr/share/cloudstack-marvin/Marvin*.tar.gz"
-    issh root@$msip "python /usr/lib/python2.7/site-packages/marvin/deployDataCenter.py -i /marvin/marvin.cfg"
-  fi
+  # Only ACS version 4.16 and later supported
+  issh root@$msip "pip3 uninstall -y Marvin" || true
+  issh root@$msip "cd /usr/share/cloudstack-marvin && tar zxf Marvin*.tar.gz && mv Marvin*.tar.gz archive-marvin.tar.gz && sed -i 's/-SNAPSHOT//g' Marvin-*/setup.py"
+  issh root@$msip "pip3 install --ignore-installed /usr/share/cloudstack-marvin/Marvin-*/"
+  issh root@$msip "pip3 install --ignore-installed mysql-connector-python==8.0.20" || true
+  issh root@$msip "cd /marvin && ln -sf /usr/share/cloudstack-integration-tests tests" || true
+  issh root@$msip "python3 -m marvin.deployDataCenter -i /marvin/marvin.cfg"
+
   echo "Launched zone: http://$msip:8080/client"
 }
 
