@@ -313,19 +313,23 @@ smoketests on them.
 
     mbx list
 
+2. To build packages using `mbx`:
+
+    mbx package --repo <repo, default: shapeblue/cloudstack> --tag <tag|branch|PR, default: main> --distro <distro - el7|el8|el9|debian, default: el8> --output-dir <output directory, default: /export/testing/builds> --flags <maven build flags, default: ''>
+
 2. To deploy an environment, run:
 
-    mbx deploy <name of env, default: mbxe> <mgmt server template, default: mbxt-kvm-el7> <hypervisor template, default: mbxt-kvm-el7> <repo, default: http://packages.shapeblue.com/cloudstack/upstream/el7/4.18>
+    mbx deploy <name of env, default: mbxe> <mgmt server template, default: mbxt-kvm-el8> <hypervisor template, default: mbxt-kvm-el8> <repo, default: http://packages.shapeblue.com/cloudstack/upstream/el8/4.20>
 
 Example to deploy test matrix (kvm, vmware, xenserver) environments:
 
-    mbx deploy 418-kenv mbxt-kvm-el8 mbxt-kvm-el8 # deploys ACS 4.18 + KVM EL8 env
-    mbx deploy 418-venv mbxt-kvm-el8 mbxt-vmware7 # deploys ACS 4.18 + VMware7(u3) env
-    mbx deploy 418-xenv mbxt-kvm-el8 mbxt-xcpng82 # deploys ACS 4.18 + XCP-ng 8.2 env
+    mbx deploy 420-kenv mbxt-kvm-el8 mbxt-kvm-el8 # deploys ACS 4.20 + KVM EL8 env
+    mbx deploy 420-venv mbxt-kvm-el8 mbxt-vmware7 # deploys ACS 4.20 + VMware7(u3) env
+    mbx deploy 420-xenv mbxt-kvm-el8 mbxt-xcpng82 # deploys ACS 4.20 + XCP-ng 8.2 env
 
 More examples with custom packages repositories:
 
-    mbx deploy cs417-kvm mbxt-kvm-el7 mbxt-kvm-el7 http://download.cloudstack.org/centos/7/4.17/
+    mbx deploy cs420-kvm mbxt-kvm-el8 mbxt-kvm-el8 http://download.cloudstack.org/el/8/4.20/
 
 3. Once `mbx` environment is deployed, to launch a zone run:
 
