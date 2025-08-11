@@ -381,11 +381,14 @@ deploy() {
 
   # Generate marvin config
   msip=$(getent hosts $env-mgmt1 | awk '{ print $1 }')
+  monkeynet_gw=$(virsh net-dumpxml monkeynet 2>/dev/null | xmllint --xpath 'string(//ip/@address)' - 2>/dev/null)
+  monkeynet_gw=${monkeynet_gw:-172.20.0.1}
+  monkeynet_gw_prefix=$(echo "$monkeynet_gw" | cut -d. -f1-2)
   export vlan="$(echo $id*100|bc)-$(echo $id*100+99|bc)"
-  export public_start="172.20.$id.1"
-  export public_end="172.20.$id.125"
-  export pod_start="172.20.$id.126"
-  export pod_end="172.20.$id.250"
+  export public_start="${monkeynet_gw_prefix}.$id.1"
+  export public_end="${monkeynet_gw_prefix}.$id.125"
+  export pod_start="${monkeynet_gw_prefix}.$id.126"
+  export pod_end="${monkeynet_gw_prefix}.$id.250"
   export host1=$(getent hosts $env-host1 | awk '{ print $1 }')
   export host2=$(getent hosts $env-host2 | awk '{ print $1 }')
   export storage_path="/export/testing/$env"
@@ -420,6 +423,9 @@ deploy() {
   fi
 
   envsubst < $ROOT/marvin/$hypervisor.cfg > $ROOT/boxes/$env/marvin.cfg
+  if [[ "$monkeynet_gw" != "172.20.0.1" ]]; then
+    sed -i "s/172\.20\.0\.1/$monkeynet_gw/g" $ROOT/boxes/$env/marvin.cfg
+  fi
   echo "VMs deployed and marvin config generated, to launch zone run:"
   echo "  mbx launch $env"
 }
@@ -566,12 +572,14 @@ dev() {
   fi
 
   # Generate marvin config
-  msip="172.20.0.1"
+  msip=$(virsh net-dumpxml monkeynet 2>/dev/null | xmllint --xpath 'string(//ip/@address)' - 2>/dev/null)
+  msip=${msip:-172.20.0.1}
+  msip_prefix=$(echo "$msip" | cut -d. -f1-2)
   export vlan="$(echo $id*100|bc)-$(echo $id*100+99|bc)"
-  export public_start="172.20.$id.1"
-  export public_end="172.20.$id.125"
-  export pod_start="172.20.$id.126"
-  export pod_end="172.20.$id.250"
+  export public_start="${prefix}.$id.1"
+  export public_end="${prefix}.$id.125"
+  export pod_start="${prefix}.$id.126"
+  export pod_end="${prefix}.$id.250"
   export host1=$(getent hosts $env-host1 | awk '{ print $1 }')
   export host2="host2"
   export storage_path="/export/testing/$env"
@@ -603,6 +611,9 @@ dev() {
   fi
 
   envsubst < $ROOT/marvin/$hypervisor.cfg > $ROOT/boxes/$env/marvin.cfg
+  if [[ "$msip" != "172.20.0.1" ]]; then
+    sed -i "s/172\.20\.0\.1/$msip/g" $ROOT/boxes/$env/marvin.cfg
+  fi
   jq "del(.zones|.[0].pods|.[0].clusters|.[0].hosts[1])" $ROOT/boxes/$env/marvin.cfg > /dev/null
   echo "Marvin cfg file: $ROOT/boxes/$env/marvin.cfg"
   echo "Deploy CloudStack db, start jetty using mvn, install/upgrade Marvin and then launch zone using:"
