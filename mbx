@@ -328,14 +328,14 @@ deploy() {
     exit 1
   fi
 
-  name=${1:-"mbx-cs420"}
+  name=${1:-"mbx-cs422"}
   mst=${2:-"mbxt-kvm-el8"}
   hyt=${3:-"mbxt-kvm-el8"}
   # Validate templates
   check_mbxt mgmt $mst
   check_mbxt hypervisor $hyt
   hypervisor=$(echo $hyt |  awk '{print substr($0,6,3)}')
-  repo=${4:-"http://packages.shapeblue.com/cloudstack/upstream/el8/4.20"}
+  repo=${4:-"http://packages.shapeblue.com/cloudstack/upstream/el8/4.22"}
 
   uuid=$(cat /proc/sys/kernel/random/uuid | sed 's/-.*//g')
   env="qa$id-$name-$uuid-$hypervisor"
