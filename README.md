@@ -122,10 +122,7 @@ Supported Hypervisors (Templates):
 - XCP-ng: 8.2, 8.3
 - XenServer: 7.1 LSTR, 8.4
 
-Tested CloudStack versions:
-- 4.16
-- 4.17
-- 4.18
+Tested CloudStack versions: 4.16+
 
 - MBX QA & Development supported with CloudStack version 4.16 and later.
 - Smoketests supported CloudStack versions: 4.16 or later.
@@ -319,17 +316,17 @@ smoketests on them.
 
 2. To deploy an environment, run:
 
-    mbx deploy <name of env, default: mbxe> <mgmt server template, default: mbxt-kvm-el8> <hypervisor template, default: mbxt-kvm-el8> <repo, default: http://packages.shapeblue.com/cloudstack/upstream/el8/4.20>
+    mbx deploy <name of env, default: mbxe> <mgmt server template, default: mbxt-kvm-el8> <hypervisor template, default: mbxt-kvm-el8> <repo, default: http://packages.shapeblue.com/cloudstack/upstream/el8/4.22>
 
 Example to deploy test matrix (kvm, vmware, xenserver) environments:
 
-    mbx deploy 420-kenv mbxt-kvm-el8 mbxt-kvm-el8 # deploys ACS 4.20 + KVM EL8 env
-    mbx deploy 420-venv mbxt-kvm-el8 mbxt-vmware7 # deploys ACS 4.20 + VMware7(u3) env
-    mbx deploy 420-xenv mbxt-kvm-el8 mbxt-xcpng82 # deploys ACS 4.20 + XCP-ng 8.2 env
+    mbx deploy 422-kenv mbxt-kvm-el8 mbxt-kvm-el8 # deploys ACS 4.22 + KVM EL8 env
+    mbx deploy 422-venv mbxt-kvm-el8 mbxt-vmware7 # deploys ACS 4.22 + VMware7(u3) env
+    mbx deploy 422-xenv mbxt-kvm-el8 mbxt-xcpng82 # deploys ACS 4.22 + XCP-ng 8.2 env
 
 More examples with custom packages repositories:
 
-    mbx deploy cs420-kvm mbxt-kvm-el8 mbxt-kvm-el8 http://download.cloudstack.org/el/8/4.20/
+    mbx deploy cs422-kvm mbxt-kvm-el8 mbxt-kvm-el8 http://download.cloudstack.org/el/8/4.22/
 
 3. Once `mbx` environment is deployed, to launch a zone run:
 
@@ -566,9 +563,3 @@ To remote-debug the KVM agent, put the following in
 The above will ensure that JVM will start with debugging enabled on port 8787.
 In IntelliJ, or your IDE/editor you can attach a remote debugger to this
 address:port and put breakpoints (and watches) as applicable.
-
-## Contributing
-
-Report issues on https://github.com/shapeblue/mbx/issues
-
-Send a pull request on https://github.com/shapeblue/mbx
